@@ -319,7 +319,7 @@ SCOPES = [
 ]
 gs_creds = GSpreadCredentials.from_service_account_info(gspread_sa_info, scopes=SCOPES)
 gc = gspread.authorize(gs_creds)
-sheet = gc.open_by_key(GSPREAD_SHEET_ID).worksheet("rental-test")
+sheet = gc.open_by_key(GSPREAD_SHEET_ID).worksheet("Rental Inventories")
 
 def ensure_sheet_headers():
     header = ["Property Id", "Agent Id", "Property Name", "Property Type", "Plot Size", "SBUA", "Rent Per Month in Lakhs", "Maintenance Charges", "Security Deposit", "Configuration", "Facing", "Furnishing Status", "Micromarket", "Area", "Available From", "Floor Number", "Lease Period", "Lock-in Period", "Amenities", "Extra details", "Restrictions", "Veg/Non Veg", "Pet friendly", "Drive Link", "mapLocation", "Coordinates", "Date of inventory added", "Date of Status Last Checked", "Agent Number", "Agent Name", "Exact Floor"]
