@@ -447,7 +447,7 @@ if st.button("Fetch Agent Details"):
 # --- Place property type outside the form for dynamic behavior ---
 if "property_type" not in st.session_state:
     st.session_state.property_type = ""
-st.session_state.property_type = st.selectbox("Property Type", ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space"])
+st.session_state.property_type = st.selectbox("Property Type", ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space", "Commercial Property"])
 
 with st.form(key="rental_form"):
     st.header("Property Details")
