@@ -436,7 +436,6 @@ if submitted:
     sheet_agent_number = standardize_phone_number(agent_number)[3:]
     sheet_row = [
         property_id,
-        agent_id_final,
         property_name,
         property_type,
         plot_size,
