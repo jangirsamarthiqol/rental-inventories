@@ -444,26 +444,33 @@ if st.button("Fetch Agent Details"):
     else:
         st.error("Agent not found.")
 
+# --- Place property type outside the form for dynamic behavior ---
+if "property_type" not in st.session_state:
+    st.session_state.property_type = ""
+st.session_state.property_type = st.selectbox("Property Type", ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space"])
+
 with st.form(key="rental_form"):
     st.header("Property Details")
     property_name = st.text_input("Property Name")
-    property_type = st.selectbox("Property Type", ["Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space"])
+    # Use the value from session_state for dynamic rendering
+    property_type = st.session_state.property_type
+    st.write("Selected property type:", property_type)  # Debug output; remove later if not needed
     plot_size = st.text_input("Plot Size")
     SBUA = st.text_input("SBUA")
     rent_per_month = st.text_input("Rent Per Month in Lakhs")
-    maintenance_charges = st.selectbox("Maintenance Charges", ["Included", "Not included"])
+    maintenance_charges = st.selectbox("Maintenance Charges", ["", "Included", "Not included"])
     security_deposit = st.text_input("Security Deposit")
     
-    if property_type in ["Apartment", "Duplex", "Triplex", "Villa"]:
-        configuration = st.selectbox("Configuration", ["1 BHK", "2 BHK", "2.5 BHK", "3 BHK", "3.5 BHK", "4 BHK", "4.5 BHK", "5 BHK", "5.5 BHK", "6 BHK", "6.5 BHK", "7 BHK", "7.5 BHK", "8 BHK", "8.5 BHK", "9 BHK", "9.5 BHK", "10 BHK"])
-    elif property_type == "Studio":
+    if property_type.strip().lower() in ["apartment", "duplex", "triplex", "villa"]:
+        configuration = st.selectbox("Configuration", ["", "1 BHK", "2 BHK", "2.5 BHK", "3 BHK", "3.5 BHK", "4 BHK", "4.5 BHK", "5 BHK", "5.5 BHK", "6 BHK", "6.5 BHK", "7 BHK", "7.5 BHK", "8 BHK", "8.5 BHK", "9 BHK", "9.5 BHK", "10 BHK"])
+    elif property_type.strip().lower() == "studio":
         configuration = "Studio"
         st.info("Configuration auto-set as 'Studio'")
     else:
         configuration = st.text_input("Configuration")
         
-    facing = st.selectbox("Facing", ["East", "North", "West", "South", "North-East", "North-West", "South-East", "South-West"])
-    furnishing_status = st.selectbox("Furnishing Status", ["Fully Furnished", "Semi Furnished", "Warm Shell", "Bare Shell", "Plug & Play"])
+    facing = st.selectbox("Facing", ["", "East", "North", "West", "South", "North-East", "North-West", "South-East", "South-West"])
+    furnishing_status = st.selectbox("Furnishing Status", ["", "Fully Furnished", "Semi Furnished", "Warm Shell", "Bare Shell", "Plug & Play"])
     
     micromarket_selected = st.multiselect("Select Micromarket", options=all_micromarkets, help="Search and select one micromarket")
     micromarket = micromarket_selected[0] if micromarket_selected else ""
@@ -482,14 +489,14 @@ with st.form(key="rental_form"):
         st.write("Computed Floor Range:", computed_floor_range)
         floor_range = computed_floor_range
     else:
-        floor_range = st.selectbox("Floor Range", ["NA", "Ground Floor", "Lower Floor (1-5)", "Middle Floor (6-10)", "Higher Floor (10+)", "Higher Floor (20+)", "Top Floor"])
+        floor_range = st.selectbox("Floor Range", ["", "NA", "Ground Floor", "Lower Floor (1-5)", "Middle Floor (6-10)", "Higher Floor (10+)", "Higher Floor (20+)", "Top Floor"])
     
     lease_period = st.text_input("Lease Period")
     lock_in_period = st.text_input("Lock-in Period")
     amenities = st.text_input("Amenities")
     extra_details = st.text_area("Extra details")
     restrictions = st.text_area("Restrictions")
-    veg_non_veg = st.selectbox("Veg/Non Veg", ["Veg Only", "Both"])
+    veg_non_veg = st.selectbox("Veg/Non Veg", ["", "Veg Only", "Both"])
     pet_friendly = st.text_input("Pet friendly")
     mapLocation = st.text_input("mapLocation")
     coordinates = st.text_input("Coordinates (lat, lng)")
@@ -500,8 +507,8 @@ with st.form(key="rental_form"):
     documents_files = st.file_uploader("Upload Documents", type=["pdf", "doc", "docx"], accept_multiple_files=True)
     
     st.header("Manual Agent Override (if needed)")
-    agent_id_manual = st.text_input("Agent ID (if not auto-filled)", value="")
-    agent_name_manual = st.text_input("Agent Name (if not auto-filled)", value="")
+    agent_id_manual = st.text_input("Agent ID (if not auto‑filled)", value="")
+    agent_name_manual = st.text_input("Agent Name (if not auto‑filled)", value="")
     
     submitted = st.form_submit_button("Submit Inventory")
     
@@ -644,5 +651,12 @@ if submitted:
     try:
         append_to_google_sheet(sheet_row)
         st.success("Property details appended to Google Sheet!")
+        st.success("Submission Successful!")
     except Exception as e:
         st.error(f"Error appending to Google Sheet: {e}")
+
+# Clear button to reset the form
+if st.button("Clear Form"):
+    for key in st.session_state.keys():
+        del st.session_state[key]
+    st.experimental_set_query_params()  # Forces a refresh (if your app relies on query parameters)
