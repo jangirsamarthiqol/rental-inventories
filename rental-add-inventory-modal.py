@@ -17,6 +17,9 @@ from googleapiclient.http import MediaIoBaseUpload
 # Google Cloud Storage (for Firebase Storage)
 from google.cloud import storage as gcs
 
+# Import area data
+from area_data import areasData, all_micromarkets, find_area
+
 # -------------------------------------
 # Load Environment Variables
 # -------------------------------------
@@ -91,215 +94,6 @@ google_drive_sa_info = {
 }
 
 # -------------------------------------
-# Micromarket Data
-# -------------------------------------
-areasData = [
-    {
-        "Area": "Central Bangalore",
-        "MicroMarkets": [
-            "B Venkata Reddy Nagar",
-            "Basavanagudi",
-            "BTM Layout",
-            "Chamrajapet",
-            "Chickpet",
-            "Fraser Town",
-            "Jayamahal",
-            "Jogupalya",
-            "Kempapura Agrahara",
-            "Lakkasandra",
-            "Malleswaram",
-            "Rajajinagar",
-            "Sadashivanagar",
-            "Shanthi Nagar",
-            "Vasanth Nagar",
-            "Vishveshwara Puram",
-        ],
-    },
-    {
-        "Area": "East Bangalore",
-        "MicroMarkets": [
-            "A. Narayanapura",
-            "Aavalahalli",
-            "AECS Layout",
-            "Agaram",
-            "Avalahalli",
-            "Balagere",
-            "Bellandur",
-            "Bhoganahalli",
-            "Bidaraguppe",
-            "Brookefield",
-            "Byalahalli",
-            "CV Raman Nagar",
-            "Carmelaram",
-            "Chikkabellandur",
-            "Chikkakannalli",
-            "Choodasandra",
-            "Dodda Nekkundi",
-            "Doddakannelli",
-            "Domlur",
-            "Dommasandra",
-            "Garudachar Palya",
-            "Gattahalli",
-            "Gopasandra",
-            "Gulimangala",
-            "Gunjur",
-            "HAL Airport",
-            "Harlur",
-            "Harohalli",
-            "Hoskote",
-            "HSR Layout",
-            "Hoodi",
-            "Huskuru",
-            "Indiranagar",
-            "Indlabele",
-            "KR Puram",
-            "Kachamaranahalli",
-            "Kadubeesanahalli",
-            "Kadugodi",
-            "Kaikondrahalli",
-            "Kannamangala",
-            "Kasvanahalli",
-            "Kodathi",
-            "Koramangala",
-            "Kyalasanahalli",
-            "Mahadevapura",
-            "Marathahalli",
-            "Mullur",
-            "Muthanallur",
-            "Naganathapura",
-            "Neriga",
-            "Panathur",
-            "Rayasandra",
-            "Sadaramangala",
-            "Sarjapura",
-            "Somsundarapalya",
-            "Varthur",
-            "Whitefield",
-        ],
-    },
-    {
-        "Area": "North Bangalore",
-        "MicroMarkets": [
-            "Airport City",
-            "Alur",
-            "Bagaluru",
-            "Baiyappanahalli",
-            "Banasavadi",
-            "Bande Bommasandra",
-            "Bidarahalli",
-            "Bileshivale",
-            "Budigere",
-            "Budigere Cross",
-            "Byappanahalli",
-            "Bylakere",
-            "Byrathi",
-            "Cheemasandra",
-            "Chikkabanavara",
-            "Chikkagubbi",
-            "Dasanayakanahalli",
-            "Devanahalli",
-            "Dodda Gubbi",
-            "Doddaballapur",
-            "Gundur",
-            "HBR Layout",
-            "Hebbal",
-            "Hennur",
-            "Hesaraghatta",
-            "Horamavu",
-            "IISC",
-            "Jakkur",
-            "Jalahalli",
-            "Kada agrahara",
-            "Kadugondanahalli",
-            "Kalkere",
-            "Kannuru",
-            "KIADB Park",
-            "Kommasandra",
-            "Kothanur",
-            "Mandur",
-            "Maralakunte",
-            "Margondanahalli",
-            "Mitganahalli",
-            "Nagavara",
-            "Narayanapura",
-            "Nimbekaipura",
-            "Radhakrishna Temple Ward",
-            "Rajanukunte",
-            "Ramamurthy Nagar",
-            "RT Nagar",
-            "Sahakara Nagar",
-            "Thanisandra",
-            "Vaderahalli",
-            "Vidyaranyapura",
-            "Vignana Kendra",
-            "Vijinapura",
-            "Visthar",
-            "Yelahanka",
-            "Yelahanka Satellite Town",
-            "Yerappanahalli",
-        ],
-    },
-    {
-        "Area": "South Bangalore",
-        "MicroMarkets": [
-            "Adigondanahalli",
-            "Akshayanagar",
-            "Anekal",
-            "Anjanapura",
-            "Attibele",
-            "Banashankari",
-            "Banashankari 6th Stage",
-            "Bangalore South",
-            "Bannerghatta",
-            "Begur",
-            "Bettadasanpura",
-            "Bilekhalli",
-            "Bommanahalli",
-            "Bommasandra",
-            "Electronic City",
-            "Hemmigepura",
-            "Hulimangala",
-            "JP Nagar",
-            "Jayanagar",
-            "Jigani",
-            "Kaggalipura",
-            "Kengeri",
-            "Kudlu",
-            "Ragihalli",
-            "Rajarajeshwari Nagar",
-            "Uttarahalli"
-        ],
-    },
-    {
-        "Area": "West Bangalore",
-        "MicroMarkets": [
-            "Challaghatta",
-            "Gongadipura",
-            "Lakshmipura",
-            "Nagarabhavi",
-            "Nagasandra",
-            "Nelamangala",
-            "Peenya",
-            "Peenya Industrial Area",
-            "Sulivara",
-            "Yeshwantpur"
-        ],
-    },
-]
-
-# Flatten and sort micromarket options
-all_micromarkets = []
-for area in areasData:
-    all_micromarkets.extend(area["MicroMarkets"])
-all_micromarkets = sorted(set(all_micromarkets))
-
-def find_area(selected_micromarket: str) -> str:
-    for area_obj in areasData:
-        if selected_micromarket in area_obj["MicroMarkets"]:
-            return area_obj["Area"]
-    return ""
-
-# -------------------------------------
 # Setup Firebase Admin, Firestore, and Storage
 # -------------------------------------
 if not firebase_admin._apps:
@@ -322,7 +116,14 @@ gc = gspread.authorize(gs_creds)
 sheet = gc.open_by_key(GSPREAD_SHEET_ID).worksheet("Rental Inventories")
 
 def ensure_sheet_headers():
-    header = ["Property Id", "Agent Id", "Property Name", "Property Type", "Plot Size", "SBUA", "Rent Per Month in Lakhs", "Maintenance Charges", "Security Deposit", "Configuration", "Facing", "Furnishing Status", "Micromarket", "Area", "Available From", "Floor Number", "Lease Period", "Lock-in Period", "Amenities", "Extra details", "Restrictions", "Veg/Non Veg", "Pet friendly", "Drive Link", "mapLocation", "Coordinates", "Date of inventory added", "Date of Status Last Checked", "Agent Number", "Agent Name", "Exact Floor"]
+    header = [
+        "Property Id", "Property Name", "Property Type", "Plot Size", "SBUA",
+        "Rent Per Month in Lakhs", "Maintenance Charges", "Security Deposit", "Configuration",
+        "Facing", "Furnishing Status", "Micromarket", "Area", "Available From", "Floor Number",
+        "Lease Period", "Lock-in Period", "Amenities", "Extra details", "Restrictions",
+        "Veg/Non Veg", "Pet friendly", "Drive Link", "mapLocation", "Coordinates",
+        "Date of inventory added", "Date of Status Last Checked","Agent Id", "Agent Number", "Agent Name", "Exact Floor"
+    ]
     if sheet.row_values(1) != header:
         sheet.clear()
         sheet.append_row(header, value_input_option="USER_ENTERED")
@@ -396,7 +197,9 @@ def upload_media_to_drive(file_obj: BytesIO, filename: str, parent_folder_id: st
     try:
         res = drive_service.files().create(body=meta, media_body=media, fields="id").execute()
         file_id = res.get("id")
-        drive_service.permissions().create(fileId=file_id, body={"type": "anyone", "role": "reader"}).execute()
+        drive_service.permissions().create(
+            fileId=file_id, body={"type": "anyone", "role": "reader"}
+        ).execute()
         return f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
     except Exception as e:
         st.error(f"Drive upload error ({filename}): {e}")
@@ -431,6 +234,25 @@ def strip_plus91(num: str) -> str:
     return num
 
 # -------------------------------------
+# Clear Form Callback
+# -------------------------------------
+def clear_form_callback():
+    keys_to_clear = [
+        "agent_number", "property_type", "property_name", "plot_size", "SBUA",
+        "rent_per_month", "maintenance_charges", "security_deposit", "configuration",
+        "facing", "furnishing_status", "micromarket", "available_from", "exact_floor",
+        "floor_range", "lease_period", "lock_in_period", "amenities", "extra_details",
+        "restrictions", "veg_non_veg", "pet_friendly", "mapLocation", "coordinates"
+    ]
+    for key in keys_to_clear:
+        if key in st.session_state:
+            st.session_state[key] = ""
+    try:
+        st.experimental_rerun()
+    except Exception as e:
+        st.info("Form cleared! Please refresh the page manually.")
+
+# -------------------------------------
 # Streamlit App Layout
 # -------------------------------------
 st.title("Rental Inventory Entry")
@@ -444,7 +266,7 @@ if st.button("Fetch Agent Details"):
     else:
         st.error("Agent not found.")
 
-# --- Place property type outside the form for dynamic behavior ---
+# Place property type outside the form for dynamic behavior
 if "property_type" not in st.session_state:
     st.session_state.property_type = ""
 st.session_state.property_type = st.selectbox("Property Type", ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space", "Commercial Property"])
@@ -452,9 +274,8 @@ st.session_state.property_type = st.selectbox("Property Type", ["", "Apartment",
 with st.form(key="rental_form"):
     st.header("Property Details")
     property_name = st.text_input("Property Name")
-    # Use the value from session_state for dynamic rendering
     property_type = st.session_state.property_type
-    st.write("Selected property type:", property_type)  # Debug output; remove later if not needed
+    st.write("Selected property type:", property_type)
     plot_size = st.text_input("Plot Size")
     SBUA = st.text_input("SBUA")
     rent_per_month = st.text_input("Rent Per Month in Lakhs")
@@ -635,7 +456,7 @@ if submitted:
         amenities,
         extra_details,
         restrictions,
-        "Veg Only" if veg_non_veg == "Veg Only" else "Both",
+        veg_non_veg,
         pet_friendly,
         drive_main_link,
         mapLocation,
@@ -655,8 +476,6 @@ if submitted:
     except Exception as e:
         st.error(f"Error appending to Google Sheet: {e}")
 
-# Clear button to reset the form
-if st.button("Clear Form"):
-    for key in st.session_state.keys():
-        del st.session_state[key]
-    st.experimental_set_query_params()  # Forces a refresh (if your app relies on query parameters)
+# # Clear button to reset the form (this clears session state and refreshes the app)
+# if st.button("Clear Form", key="clear_btn"):
+#     clear_form_callback()
