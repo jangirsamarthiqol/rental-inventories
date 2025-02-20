@@ -116,17 +116,23 @@ gc = gspread.authorize(gs_creds)
 sheet = gc.open_by_key(GSPREAD_SHEET_ID).worksheet("Rental Inventories")
 
 def ensure_sheet_headers():
-    header = [
+    expected_header = [
         "Property Id", "Property Name", "Property Type", "Plot Size", "SBUA",
         "Rent Per Month in Lakhs", "Maintenance Charges", "Security Deposit", "Configuration",
         "Facing", "Furnishing Status", "Micromarket", "Area", "Available From", "Floor Number",
         "Lease Period", "Lock-in Period", "Amenities", "Extra details", "Restrictions",
         "Veg/Non Veg", "Pet friendly", "Drive Link", "mapLocation", "Coordinates",
-        "Date of inventory added", "Date of Status Last Checked","Agent Id", "Agent Number", "Agent Name", "Exact Floor"
+        "Date of inventory added", "Date of Status Last Checked", "Agent Id", "Agent Number", "Agent Name", "Exact Floor"
     ]
-    if sheet.row_values(1) != header:
-        sheet.clear()
-        sheet.append_row(header, value_input_option="USER_ENTERED")
+    
+    # Retrieve the current header row (if any)
+    current_header = sheet.row_values(1)
+    
+    # If the headers do not match exactly, update only the header row
+    if current_header != expected_header:
+        # Calculate the range based on the number of columns (31 columns -> A1:AE1)
+        header_range = "A1:AE1"
+        sheet.update(header_range, [expected_header])
 
 ensure_sheet_headers()
 
@@ -163,8 +169,23 @@ def fetch_agent_details(agent_number: str):
     return None, None
 
 def generate_property_id():
+    """
+    Generates a new property ID by finding the highest numeric value among existing
+    property IDs and incrementing it by one.
+    """
     docs = list(db.collection("rental-inventories").stream())
-    return f"RN{len(docs)+1:03d}"
+    max_id = 0
+    for doc in docs:
+        pid = doc.get("propertyId")
+        if pid and pid.startswith("RN"):
+            try:
+                num = int(pid.replace("RN", ""))
+                if num > max_id:
+                    max_id = num
+            except:
+                pass
+    new_id = max_id + 1
+    return f"RN{new_id:03d}"
 
 def upload_media_to_firebase(property_id: str, file_obj: BytesIO, folder: str, filename: str) -> str:
     path = f"rental-media-files/{property_id}/{folder}/{filename}"
