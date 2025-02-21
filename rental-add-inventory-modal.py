@@ -348,12 +348,27 @@ with st.form(key="rental_form"):
     videos_files = st.file_uploader("Upload Videos", type=["mp4", "mov", "avi"], accept_multiple_files=True)
     documents_files = st.file_uploader("Upload Documents", type=["pdf", "doc", "docx"], accept_multiple_files=True)
     
-    st.header("Manual Agent Override (if needed)")
-    agent_id_manual = st.text_input("Agent ID (if not auto‑filled)", value="")
-    agent_name_manual = st.text_input("Agent Name (if not auto‑filled)", value="")
-    
     submitted = st.form_submit_button("Submit Inventory")
-    
+
+# Inject JavaScript to prevent form submission when pressing Enter
+st.markdown(
+    """
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputs = window.parent.document.querySelectorAll('form input');
+        inputs.forEach(function(input) {
+            input.addEventListener('keydown', function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                }
+            });
+        });
+    });
+    </script>
+    """,
+    unsafe_allow_html=True
+)
+
 if submitted:
     property_id = generate_property_id()
     st.write("Generated Property ID:", property_id)
@@ -362,13 +377,9 @@ if submitted:
     drive_main_link = f"https://drive.google.com/drive/folders/{prop_drive_folder_id}" if prop_drive_folder_id else ""
     st.write("Drive Property Folder Link:", drive_main_link)
     
-    if agent_id_manual.strip() and agent_name_manual.strip():
-        agent_id_final = agent_id_manual.strip()
-        agent_name_final = agent_name_manual.strip()
-    else:
-        agent_id_final, agent_name_final = fetch_agent_details(agent_number)
-        agent_id_final = agent_id_final or ""
-        agent_name_final = agent_name_final or ""
+    agent_id_final, agent_name_final = fetch_agent_details(agent_number)
+    agent_id_final = agent_id_final or ""
+    agent_name_final = agent_name_final or ""
     
     now = datetime.datetime.now()
     timestamp = int(now.timestamp())
