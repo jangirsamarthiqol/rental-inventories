@@ -286,6 +286,6 @@ if submitted:
         st.success("Property details appended to Google Sheet!")
         st.success("Submission Successful!")
         # Automatically clear form fields (except agent number) after a successful submission.
-        clear_form_callback()
+        # clear_form_callback()
     except Exception as e:
         st.error(f"Error appending to Google Sheet: {e}")
