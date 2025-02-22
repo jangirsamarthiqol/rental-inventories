@@ -113,7 +113,7 @@ SCOPES = [
 ]
 gs_creds = GSpreadCredentials.from_service_account_info(gspread_sa_info, scopes=SCOPES)
 gc = gspread.authorize(gs_creds)
-sheet = gc.open_by_key(GSPREAD_SHEET_ID).worksheet("Rental Inventories")
+sheet = gc.open_by_key(GSPREAD_SHEET_ID).worksheet("Sheet1")
 
 def ensure_sheet_headers():
     expected_header = [
@@ -267,12 +267,8 @@ def clear_form_callback():
     ]
     for key in keys_to_clear:
         if key in st.session_state:
-            st.session_state[key] = ""
-    try:
-        st.experimental_rerun()
-    except Exception as e:
-        st.info("Form cleared! Please refresh the page manually.")
-
+            del st.session_state[key]
+    st.experimental_rerun()
 # -------------------------------------
 # Streamlit App Layout
 # -------------------------------------
@@ -294,15 +290,15 @@ st.session_state.property_type = st.selectbox("Property Type", ["", "Apartment",
 
 with st.form(key="rental_form"):
     st.header("Property Details")
-    property_name = st.text_input("Property Name")
-    property_type = st.session_state.property_type
-    st.write("Selected property type:", property_type)
-    plot_size = st.text_input("Plot Size")
-    SBUA = st.text_input("SBUA")
-    rent_per_month = st.text_input("Rent Per Month in Lakhs")
-    maintenance_charges = st.selectbox("Maintenance Charges", ["", "Included", "Not included"])
-    security_deposit = st.text_input("Security Deposit")
+    property_name = st.text_input("Property Name", value=st.session_state.get("property_name", ""))
+    property_type = st.selectbox("Property Type", ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space", "Commercial Property", "Villament"], index=0, key="property_type")
+    plot_size = st.text_input("Plot Size", value=st.session_state.get("plot_size", ""))
+    SBUA = st.text_input("SBUA", value=st.session_state.get("SBUA", ""))
+    rent_per_month = st.text_input("Rent Per Month in Lakhs", value=st.session_state.get("rent_per_month", ""))
+    maintenance_charges = st.selectbox("Maintenance Charges", ["", "Included", "Not included"], index=0, key="maintenance_charges")
+    security_deposit = st.text_input("Security Deposit", value=st.session_state.get("security_deposit", ""))
     
+    # Add similar bindings for all other inputs...   
     if property_type.strip().lower() in ["apartment", "duplex", "triplex", "villa"]:
         configuration = st.selectbox("Configuration", ["", "1 BHK", "2 BHK", "2.5 BHK", "3 BHK", "3.5 BHK", "4 BHK", "4.5 BHK", "5 BHK", "5.5 BHK", "6 BHK", "6.5 BHK", "7 BHK", "7.5 BHK", "8 BHK", "8.5 BHK", "9 BHK", "9.5 BHK", "10 BHK"])
     elif property_type.strip().lower() == "studio":
@@ -351,6 +347,11 @@ with st.form(key="rental_form"):
     submitted = st.form_submit_button("Submit Inventory")
 
 # Inject JavaScript to prevent form submission when pressing Enter
+# Clear button to reset the form
+if st.button("Clear Form", key="clear_btn"):
+    clear_form_callback()
+
+# Inject JavaScript to prevent form submission when pressing Enter
 st.markdown(
     """
     <script>
@@ -370,6 +371,142 @@ st.markdown(
 )
 
 if submitted:
+    property_id = generate_property_id()
+    st.write("Generated Property ID:", property_id)
+    
+    prop_drive_folder_id = create_drive_folder(property_id, PARENT_FOLDER_ID)
+    drive_main_link = f"https://drive.google.com/drive/folders/{prop_drive_folder_id}" if prop_drive_folder_id else ""
+    st.write("Drive Property Folder Link:", drive_main_link)
+    
+    agent_id_final, agent_name_final = fetch_agent_details(agent_number)
+    agent_id_final = agent_id_final or ""
+    agent_name_final = agent_name_final or ""
+    
+    now = datetime.datetime.now()
+    timestamp = int(now.timestamp())
+    geoloc = parse_coordinates(coordinates)
+    
+    photos_urls, videos_urls, documents_urls, drive_file_links = [], [], [], []
+    
+    for photo in photos_files:
+        filename = photo.name
+        file_bytes = BytesIO(photo.read())
+        fb_url = upload_media_to_firebase(property_id, file_bytes, "photos", filename)
+        if fb_url:
+            photos_urls.append(fb_url)
+        file_bytes.seek(0)
+        dlink = upload_media_to_drive(file_bytes, filename, prop_drive_folder_id)
+        if dlink:
+            drive_file_links.append(dlink)
+    
+    for video in videos_files:
+        filename = video.name
+        file_bytes = BytesIO(video.read())
+        fb_url = upload_media_to_firebase(property_id, file_bytes, "videos", filename)
+        if fb_url:
+            videos_urls.append(fb_url)
+        file_bytes.seek(0)
+        dlink = upload_media_to_drive(file_bytes, filename, prop_drive_folder_id)
+        if dlink:
+            drive_file_links.append(dlink)
+    
+    for doc in documents_files:
+        filename = doc.name
+        file_bytes = BytesIO(doc.read())
+        fb_url = upload_media_to_firebase(property_id, file_bytes, "documents", filename)
+        if fb_url:
+            documents_urls.append(fb_url)
+        file_bytes.seek(0)
+        dlink = upload_media_to_drive(file_bytes, filename, prop_drive_folder_id)
+        if dlink:
+            drive_file_links.append(dlink)
+    
+    property_data = {
+        "propertyId": property_id,
+        "propertyName": property_name,
+        "propertyType": property_type,
+        "plotSize": plot_size,
+        "SBUA": SBUA,
+        "rentPerMonthInLakhs": rent_per_month,
+        "maintenanceCharges": maintenance_charges,
+        "securityDeposit": security_deposit,
+        "configuration": configuration,
+        "facing": facing,
+        "furnishingStatus": furnishing_status,
+        "micromarket": micromarket,
+        "area": area,
+        "availableFrom": available_from_val,
+        "floorNumber": floor_range,
+        "exactFloor": exact_floor,
+        "leasePeriod": lease_period,
+        "lockInPeriod": lock_in_period,
+        "amenities": amenities,
+        "extraDetails": extra_details,
+        "restrictions": restrictions,
+        "vegNonVeg": veg_non_veg,
+        "petFriendly": pet_friendly,
+        "mapLocation": mapLocation,
+        "coordinates": coordinates,
+        "_geoloc": geoloc,
+        "dateOfInventoryAdded": timestamp,
+        "dateOfStatusLastChecked": timestamp,
+        "agentId": agent_id_final,
+        "agentNumber": standardize_phone_number(agent_number),
+        "agentName": agent_name_final,
+        "driveLink": drive_main_link,
+        "photos": photos_urls,
+        "videos": videos_urls,
+        "documents": documents_urls,
+        "driveFileLinks": drive_file_links
+    }
+    
+    try:
+        db.collection("rental-inventories").document(property_id).set(property_data)
+        st.success("Property saved to Firebase!")
+    except Exception as e:
+        st.error(f"Error saving to Firebase: {e}")
+    
+    sheet_agent_number = standardize_phone_number(agent_number)[3:]
+    sheet_row = [
+        property_id,
+        property_name,
+        property_type,
+        plot_size,
+        SBUA,
+        rent_per_month,
+        maintenance_charges,
+        security_deposit,
+        configuration,
+        facing,
+        furnishing_status,
+        micromarket,
+        area,
+        available_from_val,
+        floor_range,
+        lease_period,
+        lock_in_period,
+        amenities,
+        extra_details,
+        restrictions,
+        veg_non_veg,
+        pet_friendly,
+        drive_main_link,
+        mapLocation,
+        coordinates,
+        now.strftime("%Y-%m-%d %H:%M:%S"),
+        now.strftime("%Y-%m-%d %H:%M:%S"),
+        agent_id_final,
+        sheet_agent_number,
+        agent_name_final,
+        exact_floor
+    ]
+    
+    try:
+        append_to_google_sheet(sheet_row)
+        st.success("Property details appended to Google Sheet!")
+        st.success("Submission Successful!")
+    except Exception as e:
+        st.error(f"Error appending to Google Sheet: {e}")
     property_id = generate_property_id()
     st.write("Generated Property ID:", property_id)
     
