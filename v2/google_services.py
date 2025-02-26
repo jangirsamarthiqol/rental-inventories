@@ -56,9 +56,11 @@ def ensure_sheet_headers():
 
 def append_to_google_sheet(row: list):
     try:
-        sheet.append_row(row, value_input_option="USER_ENTERED")
+        # Insert new row at position 2 (right after the header)
+        sheet.insert_row(row, index=2)
     except Exception as e:
         st.error(f"Sheet error: {e}")
+
 
 # --- Google Drive Setup ---
 from google.oauth2.service_account import Credentials as DriveCredentials
