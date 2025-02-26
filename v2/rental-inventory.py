@@ -75,9 +75,6 @@ with st.form(key="rental_form"):
                                      ["", "Fully Furnished", "Semi Furnished", "Warm Shell", "Bare Shell", "Plug & Play"], 
                                      key="furnishing_status")
     
-    micromarket_selected = st.multiselect("Select Micromarket", options=all_micromarkets, help="Search and select one micromarket", key="micromarket")
-    micromarket = micromarket_selected[0] if micromarket_selected else ""
-    area = find_area(micromarket) if micromarket else ""
     
     ready_to_move = st.checkbox("Ready to Move", key="ready_to_move")
     if ready_to_move:
@@ -103,6 +100,9 @@ with st.form(key="rental_form"):
     pet_friendly = st.text_input("Pet friendly", key="pet_friendly")
     mapLocation = st.text_input("mapLocation", key="mapLocation")
     coordinates = st.text_input("Coordinates (lat, lng)", key="coordinates")
+    micromarket_selected = st.multiselect("Select Micromarket", options=all_micromarkets, help="Search and select one micromarket", key="micromarket")
+    micromarket = micromarket_selected[0] if micromarket_selected else ""
+    area = find_area(micromarket) if micromarket else ""
     
     st.header("Media Uploads")
     photos_files = st.file_uploader("Upload Photos", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="photos_files")
