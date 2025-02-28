@@ -56,10 +56,25 @@ def ensure_sheet_headers():
 
 def append_to_google_sheet(row: list):
     try:
-        # Insert new row at position 2 (right after the header)
+        # Insert the new row at position 2 (right after the header)
         sheet.insert_row(row, index=2)
+        
+        # Helper function to convert a column number (1-indexed) to its Excel letter.
+        def num_to_col(n):
+            result = ""
+            while n > 0:
+                n, remainder = divmod(n - 1, 26)
+                result = chr(65 + remainder) + result
+            return result
+        
+        last_col = num_to_col(len(row))
+        cell_range = f"A2:{last_col}2"
+        
+        # Update the inserted row using RAW mode.
+        sheet.update(cell_range, [row], value_input_option="RAW")
     except Exception as e:
         st.error(f"Sheet error: {e}")
+
 
 
 # --- Google Drive Setup ---

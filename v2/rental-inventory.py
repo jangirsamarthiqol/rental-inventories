@@ -28,7 +28,7 @@ st.title("Rental Inventory Entry")
 
 st.header("Agent Details")
 # Agent Number field is kept outside the form so it remains persistent.
-agent_number = st.text_input("Agent Number (Phone Number)", key="agent_number")
+agent_number = st.text_input("Agent Number (Phone Number)", key="agent_number").strip()
 
 if st.button("Fetch Agent Details", key="fetch_agent_details"):
     a_id, a_name = fetch_agent_details(agent_number)
@@ -37,11 +37,9 @@ if st.button("Fetch Agent Details", key="fetch_agent_details"):
     else:
         st.error("Agent not found.")
 
-# Initialize session state for property_type if not present.
 if "property_type" not in st.session_state:
     st.session_state["property_type"] = ""
 
-# Use the selectbox without reassigning the session state key.
 property_type = st.selectbox(
     "Property Type",
     ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space", "Commercial Property", "Villament"],
@@ -50,13 +48,13 @@ property_type = st.selectbox(
 
 with st.form(key="rental_form"):
     st.header("Property Details")
-    property_name = st.text_input("Property Name", key="property_name")
+    property_name = st.text_input("Property Name", key="property_name").strip().replace("'", "")
     st.write("Selected property type:", property_type)
-    plot_size = st.text_input("Plot Size", key="plot_size")
-    SBUA = st.text_input("SBUA", key="SBUA")
-    rent_per_month = st.text_input("Rent Per Month in Lakhs", key="rent_per_month")
+    plot_size = st.text_input("Plot Size", key="plot_size").strip().replace("'", "")
+    SBUA = st.text_input("SBUA", key="SBUA").strip().replace("'", "")
+    rent_per_month = st.text_input("Rent Per Month in Lakhs", key="rent_per_month").strip().replace("'", "")
     maintenance_charges = st.selectbox("Maintenance Charges", ["", "Included", "Not included"], key="maintenance_charges")
-    security_deposit = st.text_input("Security Deposit", key="security_deposit")
+    security_deposit = st.text_input("Security Deposit", key="security_deposit").strip().replace("'", "")
     
     if property_type.strip().lower() in ["apartment", "duplex", "triplex", "villa"]:
         configuration = st.selectbox("Configuration", 
@@ -68,38 +66,38 @@ with st.form(key="rental_form"):
         configuration = "Studio"
         st.info("Configuration auto-set as 'Studio'")
     else:
-        configuration = st.text_input("Configuration", key="configuration")
+        configuration = st.text_input("Configuration", key="configuration").strip().replace("'", "")
         
     facing = st.selectbox("Facing", ["", "East", "North", "West", "South", "North-East", "North-West", "South-East", "South-West"], key="facing")
     furnishing_status = st.selectbox("Furnishing Status", 
                                      ["", "Fully Furnished", "Semi Furnished", "Warm Shell", "Bare Shell", "Plug & Play"], 
                                      key="furnishing_status")
     
-    
-    ready_to_move = st.checkbox("Ready to Move", key="ready_to_move")
+    ready_to_move = st.checkbox("Ready to Move", value=False, key="ready_to_move")
     if ready_to_move:
         available_from_val = "Ready-to-move"
     else:
         available_from_date = st.date_input("Available From", datetime.date.today(), key="available_from")
-        available_from_val = available_from_date.strftime("%Y-%m-%d")
+        available_from_val = available_from_date.strftime("%d/%b/%Y")
+
     
-    exact_floor = st.text_input("Exact Floor (numeric, optional)", key="exact_floor")
-    if exact_floor.strip():
+    exact_floor = st.text_input("Exact Floor (numeric, optional)", key="exact_floor").strip().replace("'", "")
+    if exact_floor:
         computed_floor_range = compute_floor_range(exact_floor)
         st.write("Computed Floor Range:", computed_floor_range)
         floor_range = computed_floor_range
     else:
         floor_range = st.selectbox("Floor Range", ["", "NA", "Ground Floor", "Lower Floor (1-5)", "Middle Floor (6-10)", "Higher Floor (10+)", "Higher Floor (20+)", "Top Floor"], key="floor_range")
     
-    lease_period = st.text_input("Lease Period", key="lease_period")
-    lock_in_period = st.text_input("Lock-in Period", key="lock_in_period")
-    amenities = st.text_input("Amenities", key="amenities")
-    extra_details = st.text_area("Extra details", key="extra_details")
-    restrictions = st.text_area("Restrictions", key="restrictions")
+    lease_period = st.text_input("Lease Period", key="lease_period").strip().replace("'", "")
+    lock_in_period = st.text_input("Lock-in Period", key="lock_in_period").strip().replace("'", "")
+    amenities = st.text_input("Amenities", key="amenities").strip().replace("'", "")
+    extra_details = st.text_area("Extra details", key="extra_details").strip().replace("'", "")
+    restrictions = st.text_area("Restrictions", key="restrictions").strip().replace("'", "")
     veg_non_veg = st.selectbox("Veg/Non Veg", ["", "Veg Only", "Both"], key="veg_non_veg")
-    pet_friendly = st.text_input("Pet friendly", key="pet_friendly")
-    mapLocation = st.text_input("mapLocation", key="mapLocation")
-    coordinates = st.text_input("Coordinates (lat, lng)", key="coordinates")
+    pet_friendly = st.text_input("Pet friendly", key="pet_friendly").strip().replace("'", "")
+    mapLocation = st.text_input("mapLocation", key="mapLocation").strip().replace("'", "")
+    coordinates = st.text_input("Coordinates (lat, lng)", key="coordinates").strip().replace("'", "")
     micromarket_selected = st.multiselect("Select Micromarket", options=all_micromarkets, help="Search and select one micromarket", key="micromarket")
     micromarket = micromarket_selected[0] if micromarket_selected else ""
     area = find_area(micromarket) if micromarket else ""
@@ -109,14 +107,8 @@ with st.form(key="rental_form"):
     videos_files = st.file_uploader("Upload Videos", type=["mp4", "mov", "avi"], accept_multiple_files=True, key="videos_files")
     documents_files = st.file_uploader("Upload Documents", type=["pdf", "doc", "docx"], accept_multiple_files=True, key="documents_files")
     
-    # Removed key from form_submit_button since it causes error.
     submitted = st.form_submit_button("Submit Inventory")
 
-# Add a separate Clear Form button to allow manual clearing of the form (agent number remains)
-# if st.button("Clear Form", key="clear_form"):
-#     clear_form_callback()
-
-# Prevent form submission on Enter key press
 st.markdown(
     """
     <script>
@@ -136,12 +128,11 @@ st.markdown(
 )
 
 if submitted:
+    # Force property_id to be a string.
     property_id = generate_property_id()
     st.write("Generated Property ID:", property_id)
     
-    # Check if there are any media files uploaded
     has_media = bool(photos_files or videos_files or documents_files)
-    
     if has_media:
         from config import PARENT_FOLDER_ID
         prop_drive_folder_id = create_drive_folder(property_id, PARENT_FOLDER_ID)
@@ -162,7 +153,6 @@ if submitted:
     
     photos_urls, videos_urls, documents_urls, drive_file_links = [], [], [], []
     
-    # Process Photo uploads
     for photo in photos_files:
         filename = photo.name
         file_bytes = BytesIO(photo.read())
@@ -175,7 +165,6 @@ if submitted:
             if dlink:
                 drive_file_links.append(dlink)
     
-    # Process Video uploads
     for video in videos_files:
         filename = video.name
         file_bytes = BytesIO(video.read())
@@ -188,7 +177,6 @@ if submitted:
             if dlink:
                 drive_file_links.append(dlink)
     
-    # Process Document uploads
     for doc in documents_files:
         filename = doc.name
         file_bytes = BytesIO(doc.read())
@@ -240,11 +228,18 @@ if submitted:
         "driveFileLinks": drive_file_links
     }
     
-    try:
-        db.collection("rental-inventories").document(property_id).set(property_data)
-        st.success("Property saved to Firebase!")
-    except Exception as e:
-        st.error(f"Error saving to Firebase: {e}")
+    def sanitize(val):
+        if isinstance(val, str):
+            new_val = val.strip().replace("'", "")
+            try:
+                if '.' in new_val:
+                    return float(new_val)
+                elif new_val.isdigit():
+                    return int(new_val)
+            except Exception:
+                pass
+            return new_val
+        return val
     
     sheet_agent_number = standardize_phone_number(agent_number)[3:]
     sheet_row = [
@@ -281,11 +276,15 @@ if submitted:
         exact_floor
     ]
     
+    sheet_row = [sanitize(item) for item in sheet_row]
+    
     try:
         append_to_google_sheet(sheet_row)
+        db.collection("rental-inventories").document(property_id).set(property_data)
+        st.success("Property saved to Firebase!")
         st.success("Property details appended to Google Sheet!")
         st.success("Submission Successful!")
-        # Automatically clear form fields (except agent number) after a successful submission.
-        # clear_form_callback()
+        # clear_form_callback()  # Optionally clear the form
     except Exception as e:
+        st.error(f"Error saving to Firebase: {e}")
         st.error(f"Error appending to Google Sheet: {e}")
