@@ -1,6 +1,28 @@
 import streamlit as st
 import datetime
 from io import BytesIO
+import streamlit as st
+import logging
+
+# Set the logging level for googleapiclient.discovery_cache to ERROR to suppress INFO messages
+logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
+
+
+st.set_page_config(
+    page_title="Rental Inventory",  
+    page_icon="./logo.jpg"  # Use relative path without the leading slash
+)
+
+# Force favicon update using HTML
+favicon_url = "./logo.jpg"  # Ensure the file exists in your project folder
+
+st.markdown(
+    f"""
+    <link rel="icon" type="image/jpeg" href="{favicon_url}">
+    """,
+    unsafe_allow_html=True
+)
+
 
 from firebase_services import db
 from google_services import (
@@ -268,8 +290,8 @@ if submitted:
         drive_main_link,
         mapLocation,
         coordinates,
-        now.strftime("%Y-%m-%d %H:%M:%S"),
-        now.strftime("%Y-%m-%d %H:%M:%S"),
+        now.strftime("%Y-%m-%d"),
+        now.strftime("%Y-%m-%d"),
         agent_id_final,
         sheet_agent_number,
         agent_name_final,
