@@ -100,7 +100,7 @@ with st.form(key="rental_form"):
         available_from_val = "Ready-to-move"
     else:
         available_from_date = st.date_input("Available From", datetime.date.today(), key="available_from")
-        available_from_val = available_from_date.strftime("%d/%b/%Y")
+        available_from_val = available_from_date.strftime("%d/%b/%Y").strip().replace("'", "")
 
     
     exact_floor = st.text_input("Exact Floor (numeric, optional)", key="exact_floor").strip().replace("'", "")

@@ -70,10 +70,11 @@ def append_to_google_sheet(row: list):
         last_col = num_to_col(len(row))
         cell_range = f"A2:{last_col}2"
         
-        # Update the inserted row using RAW mode.
-        sheet.update(cell_range, [row], value_input_option="RAW")
+        # Update the inserted row using USER_ENTERED mode so that Sheets will parse dates and numbers.
+        sheet.update(cell_range, [row], value_input_option="USER_ENTERED")
     except Exception as e:
         st.error(f"Sheet error: {e}")
+
 
 
 
