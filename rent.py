@@ -124,14 +124,15 @@ def ensure_sheet_headers():
 
 def append_to_google_sheet(row: list):
     try:
-        # Get all current data
-        all_data = sheet.get_all_values()
-        # Determine next row index
-        next_row_index = len(all_data) + 1
-        # Insert the row at the determined index
+        all_data = sheet.get_all_values()  # Retrieves only rows with data
+        next_row_index = len(all_data) + 1   # Compute the next row index (1-indexed)
+        # If the next index is equal to or greater than current grid size, add extra rows
+        if next_row_index >= sheet.row_count:
+            sheet.add_rows(next_row_index - sheet.row_count + 1)
         sheet.insert_row(row, index=next_row_index, value_input_option="USER_ENTERED")
     except Exception as e:
         st.error(f"Sheet error: {e}")
+
 
 
 # --------------------
