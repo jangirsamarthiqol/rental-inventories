@@ -124,9 +124,15 @@ def ensure_sheet_headers():
 
 def append_to_google_sheet(row: list):
     try:
-        sheet.append_row(row, value_input_option="USER_ENTERED")
+        # Get all current data
+        all_data = sheet.get_all_values()
+        # Determine next row index
+        next_row_index = len(all_data) + 1
+        # Insert the row at the determined index
+        sheet.insert_row(row, index=next_row_index, value_input_option="USER_ENTERED")
     except Exception as e:
         st.error(f"Sheet error: {e}")
+
 
 # --------------------
 # UTILITY FUNCTIONS
