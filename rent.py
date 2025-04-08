@@ -2,6 +2,7 @@ import os
 import datetime
 import logging
 from io import BytesIO
+from concurrent.futures import ThreadPoolExecutor
 
 import streamlit as st
 import firebase_admin
@@ -13,53 +14,65 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from dotenv import load_dotenv
 
-# --------------------
+# Set page configuration first
+st.set_page_config(page_title="Rental Inventory", page_icon="📦")
+
+# Import area data (assumed to be available)
+from area_data import areasData, all_micromarkets, find_area
+
+# -------------------------------------
 # CONFIGURATION & ENVIRONMENT
-# --------------------
+# -------------------------------------
 load_dotenv()
 
-# Firebase Configuration
+# --- Firebase Credentials ---
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
 FIREBASE_PRIVATE_KEY = os.getenv("FIREBASE_PRIVATE_KEY").replace('\\n', '\n')
+FIREBASE_PRIVATE_KEY_ID = os.getenv("FIREBASE_PRIVATE_KEY_ID")  # if needed
 FIREBASE_CLIENT_EMAIL = os.getenv("FIREBASE_CLIENT_EMAIL")
+FIREBASE_CLIENT_ID = os.getenv("FIREBASE_CLIENT_ID")
 FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET")
 
-# Google Sheets Configuration
-GOOGLE_SHEET_ID = "14rr4IiEfMVQ_GlzZ-90EkeVNuo4uk_HjjGf8104a3JI"
-SHEET_NAME = "Rental Inventories"
-GSPREAD_PROJECT_ID = os.getenv("GSPREAD_PROJECT_ID")
-GSPREAD_PRIVATE_KEY_ID = os.getenv("GSPREAD_PRIVATE_KEY_ID")
-GSPREAD_PRIVATE_KEY = os.getenv("GSPREAD_PRIVATE_KEY").replace('\\n', '\n')
-GSPREAD_CLIENT_EMAIL = os.getenv("GSPREAD_CLIENT_EMAIL")
-GSPREAD_CLIENT_ID = os.getenv("GSPREAD_CLIENT_ID")
-
-# Google Drive Configuration
-GOOGLE_DRIVE_PROJECT_ID = os.getenv("GOOGLE_DRIVE_PROJECT_ID")
-GOOGLE_DRIVE_PRIVATE_KEY_ID = os.getenv("GOOGLE_DRIVE_PRIVATE_KEY_ID")
-GOOGLE_DRIVE_PRIVATE_KEY = os.getenv("GOOGLE_DRIVE_PRIVATE_KEY").replace('\\n', '\n')
-GOOGLE_DRIVE_CLIENT_EMAIL = os.getenv("GOOGLE_DRIVE_CLIENT_EMAIL")
-GOOGLE_DRIVE_CLIENT_ID = os.getenv("GOOGLE_DRIVE_CLIENT_ID")
-PARENT_FOLDER_ID = os.getenv("PARENT_FOLDER_ID")
-
-# Logging Setup
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# --------------------
-# FIREBASE INITIALIZATION
-# --------------------
 firebase_sa_info = {
     "type": "service_account",
     "project_id": FIREBASE_PROJECT_ID,
+    "private_key_id": FIREBASE_PRIVATE_KEY_ID,
     "private_key": FIREBASE_PRIVATE_KEY,
     "client_email": FIREBASE_CLIENT_EMAIL,
+    "client_id": FIREBASE_CLIENT_ID,
     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
     "token_uri": "https://oauth2.googleapis.com/token",
     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
     "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{FIREBASE_CLIENT_EMAIL}",
 }
 
-def initialize_firebase():
+# --- Google Sheets Credentials ---
+GSPREAD_PROJECT_ID = os.getenv("GSPREAD_PROJECT_ID")
+GSPREAD_PRIVATE_KEY_ID = os.getenv("GSPREAD_PRIVATE_KEY_ID")
+GSPREAD_PRIVATE_KEY = os.getenv("GSPREAD_PRIVATE_KEY").replace('\\n', '\n')
+GSPREAD_CLIENT_EMAIL = os.getenv("GSPREAD_CLIENT_EMAIL")
+GSPREAD_CLIENT_ID = os.getenv("GSPREAD_CLIENT_ID")
+GSPREAD_SHEET_ID = os.getenv("GSPREAD_SHEET_ID")  # set this in your .env
+
+# --- Google Drive Credentials ---
+GOOGLE_DRIVE_PROJECT_ID = os.getenv("GOOGLE_DRIVE_PROJECT_ID")
+GOOGLE_DRIVE_PRIVATE_KEY_ID = os.getenv("GOOGLE_DRIVE_PRIVATE_KEY_ID")
+GOOGLE_DRIVE_PRIVATE_KEY = os.getenv("GOOGLE_DRIVE_PRIVATE_KEY").replace('\\n', '\n')
+GOOGLE_DRIVE_CLIENT_EMAIL = os.getenv("GOOGLE_DRIVE_CLIENT_EMAIL")
+GOOGLE_DRIVE_CLIENT_ID = os.getenv("GOOGLE_DRIVE_CLIENT_ID")
+
+# --- Other Configurations ---
+PARENT_FOLDER_ID = os.getenv("PARENT_FOLDER_ID")  # Parent folder ID in Google Drive
+
+# Logging setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# -------------------------------------
+# CACHED INITIALIZATIONS (using st.cache_resource)
+# -------------------------------------
+@st.cache_resource
+def init_firebase():
     if not firebase_admin._apps:
         try:
             cred = credentials.Certificate(firebase_sa_info)
@@ -68,46 +81,36 @@ def initialize_firebase():
         except Exception as e:
             logger.error(f"Error initializing Firebase: {e}")
             raise
+    db_inst = firestore.client()
+    bucket_inst = storage.bucket()
+    gcs_client_inst = gcs.Client.from_service_account_info(firebase_sa_info)
+    return db_inst, bucket_inst, gcs_client_inst
 
-initialize_firebase()
+db, bucket, gcs_client = init_firebase()
 
-def get_firestore_client():
-    return firestore.client()
+@st.cache_resource
+def init_gspread_client():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    gs_creds = ServiceAccountCredentials.from_service_account_info({
+        "type": "service_account",
+        "project_id": GSPREAD_PROJECT_ID,
+        "private_key_id": GSPREAD_PRIVATE_KEY_ID,
+        "private_key": GSPREAD_PRIVATE_KEY,
+        "client_email": GSPREAD_CLIENT_EMAIL,
+        "client_id": GSPREAD_CLIENT_ID,
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{GSPREAD_CLIENT_EMAIL}",
+    }, scopes=scopes)
+    client = gspread.authorize(gs_creds)
+    return client
 
-def get_storage_bucket():
-    return storage.bucket()
-
-def get_gcs_client():
-    return gcs.Client.from_service_account_info(firebase_sa_info)
-
-db = get_firestore_client()
-bucket = get_storage_bucket()
-gcs_client = get_gcs_client()
-
-# --------------------
-# GOOGLE SHEETS & DRIVE SERVICES
-# --------------------
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
-]
-
-# Google Sheets Setup via gspread
-gspread_sa_info = {
-    "type": "service_account",
-    "project_id": GSPREAD_PROJECT_ID,
-    "private_key_id": GSPREAD_PRIVATE_KEY_ID,
-    "private_key": GSPREAD_PRIVATE_KEY,
-    "client_email": GSPREAD_CLIENT_EMAIL,
-    "client_id": GSPREAD_CLIENT_ID,
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{GSPREAD_CLIENT_EMAIL}",
-}
-gs_creds = ServiceAccountCredentials.from_service_account_info(gspread_sa_info, scopes=SCOPES)
-gc = gspread.authorize(gs_creds)
-sheet = gc.open_by_key(GOOGLE_SHEET_ID).worksheet(SHEET_NAME)
+gc = init_gspread_client()
+sheet = gc.open_by_key(GSPREAD_SHEET_ID).worksheet("Rental Inventories")
 
 def ensure_sheet_headers():
     expected_header = [
@@ -120,24 +123,43 @@ def ensure_sheet_headers():
     ]
     current_header = sheet.row_values(1)
     if current_header != expected_header:
-        sheet.update(range_name="A1:AE1", values=[expected_header])
+        header_range = "A1:AE1"
+        sheet.update(header_range, [expected_header])
+
+ensure_sheet_headers()
 
 def append_to_google_sheet(row: list):
     try:
-        all_data = sheet.get_all_values()  # Retrieves only rows with data
-        next_row_index = len(all_data) + 1   # Compute the next row index (1-indexed)
-        # If the next index is equal to or greater than current grid size, add extra rows
-        if next_row_index >= sheet.row_count:
-            sheet.add_rows(next_row_index - sheet.row_count + 1)
-        sheet.insert_row(row, index=next_row_index, value_input_option="USER_ENTERED")
+        sheet.append_row(row, value_input_option="USER_ENTERED")
     except Exception as e:
         st.error(f"Sheet error: {e}")
 
+@st.cache_resource
+def init_drive_service():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    drive_creds = ServiceAccountCredentials.from_service_account_info({
+        "type": "service_account",
+        "project_id": GOOGLE_DRIVE_PROJECT_ID,
+        "private_key_id": GOOGLE_DRIVE_PRIVATE_KEY_ID,
+        "private_key": GOOGLE_DRIVE_PRIVATE_KEY,
+        "client_email": GOOGLE_DRIVE_CLIENT_EMAIL,
+        "client_id": GOOGLE_DRIVE_CLIENT_ID,
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{GOOGLE_DRIVE_CLIENT_EMAIL}",
+    }, scopes=scopes)
+    service = build("drive", "v3", credentials=drive_creds)
+    return service
 
+drive_service = init_drive_service()
 
-# --------------------
-# UTILITY FUNCTIONS
-# --------------------
+# -------------------------------------
+# HELPER FUNCTIONS
+# -------------------------------------
 def parse_coordinates(coord_str: str):
     try:
         parts = coord_str.split(",")
@@ -150,15 +172,19 @@ def parse_coordinates(coord_str: str):
 def standardize_phone_number(num: str) -> str:
     num = num.strip().replace(" ", "")
     if not num.startswith("+91"):
-        num = "+91" + num if not num.startswith("91") else "+" + num
+        if num.startswith("91"):
+            num = "+" + num
+        else:
+            num = "+91" + num
     return num
 
 def strip_plus91(num: str) -> str:
-    return num.strip()[3:] if num.strip().startswith("+91") else num.strip()
+    num = num.strip()
+    return num[3:] if num.startswith("+91") else num
 
 def fetch_agent_details(agent_number: str):
     agent_number = standardize_phone_number(agent_number)
-    docs = db.collection("agents").where(field_path="phonenumber", op_string="==", value=agent_number).limit(1).stream()
+    docs = db.collection("agents").where("phonenumber", "==", agent_number).limit(1).stream()
     for doc in docs:
         data = doc.to_dict()
         return data.get("cpId"), data.get("name")
@@ -177,7 +203,7 @@ def generate_property_id():
                 pass
     return f"RN{max_id + 1:03d}"
 
-def upload_media_to_firebase(property_id: str, file_obj, folder: str, filename: str) -> str:
+def upload_media_to_firebase(property_id: str, file_obj: BytesIO, folder: str, filename: str) -> str:
     path = f"rental-media-files/{property_id}/{folder}/{filename}"
     blob = bucket.blob(path)
     try:
@@ -187,6 +213,65 @@ def upload_media_to_firebase(property_id: str, file_obj, folder: str, filename: 
     except Exception as e:
         st.error(f"Firebase error ({filename}): {e}")
         return ""
+
+def create_drive_folder(folder_name: str, parent_id: str) -> str:
+    query = (
+        f"'{parent_id}' in parents and name='{folder_name}' and "
+        "mimeType='application/vnd.google-apps.folder' and trashed=false"
+    )
+    try:
+        files = drive_service.files().list(q=query, fields="files(id)").execute().get("files", [])
+    except Exception as e:
+        st.error(f"Error querying drive folders: {e}")
+        return ""
+    if files:
+        return files[0]["id"]
+    meta = {"name": folder_name, "mimeType": "application/vnd.google-apps.folder", "parents": [parent_id]}
+    try:
+        folder = drive_service.files().create(body=meta, fields="id").execute()
+        return folder.get("id")
+    except Exception as e:
+        st.error(f"Drive folder error ({folder_name}): {e}")
+        return ""
+
+def upload_media_to_drive(file_obj: BytesIO, filename: str, parent_folder_id: str):
+    file_obj.seek(0)
+    meta = {"name": filename, "parents": [parent_folder_id]}
+    media = MediaIoBaseUpload(file_obj, mimetype="application/octet-stream", resumable=True)
+    try:
+        res = drive_service.files().create(body=meta, media_body=media, fields="id").execute()
+        file_id = res.get("id")
+        drive_service.permissions().create(
+            fileId=file_id, body={"type": "anyone", "role": "reader"}
+        ).execute()
+        return f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
+    except Exception as e:
+        st.error(f"Drive upload error ({filename}): {e}")
+        return None
+
+# --- Parallel file uploads using ThreadPoolExecutor ---
+def upload_single_file(file, property_id, folder, drive_folder_id):
+    filename = file.name
+    file_bytes = BytesIO(file.read())
+    fb_url = upload_media_to_firebase(property_id, file_bytes, folder, filename)
+    dlink = None
+    if drive_folder_id:
+        file_bytes.seek(0)
+        dlink = upload_media_to_drive(file_bytes, filename, drive_folder_id)
+    return fb_url, dlink
+
+def process_files_concurrent(files, property_id, folder, drive_folder_id):
+    firebase_urls = []
+    drive_links = []
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(upload_single_file, file, property_id, folder, drive_folder_id) for file in files]
+        for future in futures:
+            fb_url, dlink = future.result()
+            if fb_url:
+                firebase_urls.append(fb_url)
+            if dlink:
+                drive_links.append(dlink)
+    return firebase_urls, drive_links
 
 def compute_floor_range(exact_floor):
     try:
@@ -206,7 +291,7 @@ def compute_floor_range(exact_floor):
 
 def clear_form_callback():
     keys_to_clear = [
-        "property_type", "property_name", "plot_size", "SBUA",
+        "agent_number", "property_type", "property_name", "plot_size", "SBUA",
         "rent_per_month", "maintenance_charges", "security_deposit", "configuration",
         "facing", "furnishing_status", "micromarket", "available_from", "exact_floor",
         "floor_range", "lease_period", "lock_in_period", "amenities", "extra_details",
@@ -214,67 +299,33 @@ def clear_form_callback():
     ]
     for key in keys_to_clear:
         if key in st.session_state:
-            st.session_state[key] = ""
-    if hasattr(st, "experimental_rerun"):
-        st.experimental_rerun()
-    else:
-        st.info("Form cleared! Please refresh the page manually.")
+            del st.session_state[key]
+    st.experimental_rerun()
 
-def process_files(files, property_id, folder, drive_folder_id):
-    """
-    Uploads a list of files to Firebase and Google Drive.
-    Returns two lists: one for Firebase URLs and one for Drive links.
-    """
-    firebase_urls = []
-    drive_links = []
-    for file in files:
-        filename = file.name
-        file_bytes = BytesIO(file.read())
-        fb_url = upload_media_to_firebase(property_id, file_bytes, folder, filename)
-        if fb_url:
-            firebase_urls.append(fb_url)
-        if drive_folder_id:
-            file_bytes.seek(0)
-            dlink = upload_media_to_drive(file_bytes, filename, drive_folder_id)
-            if dlink:
-                drive_links.append(dlink)
-    return firebase_urls, drive_links
-
-# --------------------
-# STREAMLIT APPLICATION
-# --------------------
+# -------------------------------------
+# STREAMLIT APPLICATION (Inventory Submission UI)
+# -------------------------------------
 def main():
-    # Set Streamlit page config and favicon
-    st.set_page_config(page_title="Rental Inventory", page_icon="./logo.jpg")
-    st.markdown(f'<link rel="icon" type="image/jpeg" href="./logo.jpg">', unsafe_allow_html=True)
-    logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
-    
-    # Import area data (ensure area_data.py is in the same directory)
-    from area_data import areasData, all_micromarkets, find_area
-
-    ensure_sheet_headers()
-    
     st.title("Rental Inventory Entry")
     
     # --- Agent Details ---
     st.header("Agent Details")
-    agent_number_input = st.text_input("Agent Number (Phone Number)", key="agent_number").strip()
-    
+    agent_number = st.text_input("Agent Number (Phone Number)", key="agent_number").strip()
     if st.button("Fetch Agent Details", key="fetch_agent_details"):
-        a_id, a_name = fetch_agent_details(agent_number_input)
+        a_id, a_name = fetch_agent_details(agent_number)
         if a_id:
             st.success(f"Agent Found: {a_name} (ID: {a_id})")
         else:
             st.error("Agent not found.")
     
+    # Initialize session_state for property_type if not already set
     if "property_type" not in st.session_state:
         st.session_state["property_type"] = ""
     
-    property_type = st.selectbox(
-        "Property Type",
+    # Capture property type (do not modify session_state after widget creation)
+    property_type = st.selectbox("Property Type", 
         ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space", "Commercial Property", "Villament"],
-        key="property_type"
-    )
+        key="property_type")
     
     with st.form(key="rental_form"):
         st.header("Property Details")
@@ -286,6 +337,7 @@ def main():
         maintenance_charges = st.selectbox("Maintenance Charges", ["", "Included", "Not included"], key="maintenance_charges")
         security_deposit = st.text_input("Security Deposit", key="security_deposit").strip().replace("'", "")
         
+        # Configuration based on property type
         if property_type.strip().lower() in ["apartment", "duplex", "triplex", "villa"]:
             configuration = st.selectbox("Configuration", 
                                          ["", "1 BHK", "2 BHK", "2.5 BHK", "3 BHK", "3.5 BHK", "4 BHK", 
@@ -303,12 +355,16 @@ def main():
                                          ["", "Fully Furnished", "Semi Furnished", "Warm Shell", "Bare Shell", "Plug & Play"], 
                                          key="furnishing_status")
         
-        ready_to_move = st.checkbox("Ready to Move", value=False, key="ready_to_move")
+        micromarket_selected = st.multiselect("Select Micromarket", options=all_micromarkets, help="Search and select one micromarket", key="micromarket")
+        micromarket = micromarket_selected[0] if micromarket_selected else ""
+        area = find_area(micromarket) if micromarket else ""
+        
+        ready_to_move = st.checkbox("Ready to Move", key="ready_to_move")
         if ready_to_move:
             available_from_val = "Ready-to-move"
         else:
             available_from_date = st.date_input("Available From", datetime.date.today(), key="available_from")
-            available_from_val = available_from_date.strftime("%d/%b/%Y").strip().replace("'", "")
+            available_from_val = available_from_date.strftime("%Y-%m-%d")
         
         exact_floor = st.text_input("Exact Floor (numeric, optional)", key="exact_floor").strip().replace("'", "")
         if exact_floor:
@@ -327,9 +383,6 @@ def main():
         pet_friendly = st.text_input("Pet friendly", key="pet_friendly").strip().replace("'", "")
         mapLocation = st.text_input("mapLocation", key="mapLocation").strip().replace("'", "")
         coordinates = st.text_input("Coordinates (lat, lng)", key="coordinates").strip().replace("'", "")
-        micromarket_selected = st.multiselect("Select Micromarket", options=all_micromarkets, help="Search and select one micromarket", key="micromarket")
-        micromarket = micromarket_selected[0] if micromarket_selected else ""
-        area = find_area(micromarket) if micromarket else ""
         
         st.header("Media Uploads")
         photos_files = st.file_uploader("Upload Photos", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="photos_files")
@@ -338,7 +391,7 @@ def main():
         
         submitted = st.form_submit_button("Submit Inventory")
     
-    # Prevent accidental form submission on Enter key press
+    # Prevent accidental form submission with Enter key
     st.markdown(
         """
         <script>
@@ -358,21 +411,19 @@ def main():
     )
     
     if submitted:
+        # -------------------------
+        # INVENTORY SUBMISSION DETAILS
+        # -------------------------
         property_id = generate_property_id()
         st.write("Generated Property ID:", property_id)
         
-        # Handle media uploads if any files are provided
-        has_media = bool(photos_files or videos_files or documents_files)
-        if has_media:
-            drive_folder_id = create_drive_folder(property_id, PARENT_FOLDER_ID)
-            drive_main_link = f"https://drive.google.com/drive/folders/{drive_folder_id}" if drive_folder_id else ""
-            st.write("Drive Property Folder Link:", drive_main_link)
-        else:
-            drive_folder_id = None
-            drive_main_link = ""
-            st.info("No media files uploaded; skipping Google Drive uploads.")
+        # Create dedicated Drive folder for this property
+        prop_drive_folder_id = create_drive_folder(property_id, PARENT_FOLDER_ID)
+        drive_main_link = f"https://drive.google.com/drive/folders/{prop_drive_folder_id}" if prop_drive_folder_id else ""
+        st.write("Drive Property Folder Link:", drive_main_link)
         
-        agent_id_final, agent_name_final = fetch_agent_details(agent_number_input)
+        # Fetch agent details
+        agent_id_final, agent_name_final = fetch_agent_details(agent_number)
         agent_id_final = agent_id_final or ""
         agent_name_final = agent_name_final or ""
         
@@ -380,11 +431,13 @@ def main():
         timestamp = int(now.timestamp())
         geoloc = parse_coordinates(coordinates)
         
-        photos_urls, photos_drive_links = process_files(photos_files, property_id, "photos", drive_folder_id)
-        videos_urls, videos_drive_links = process_files(videos_files, property_id, "videos", drive_folder_id)
-        documents_urls, documents_drive_links = process_files(documents_files, property_id, "documents", drive_folder_id)
+        # Process media uploads concurrently
+        photos_urls, photos_drive_links = process_files_concurrent(photos_files, property_id, "photos", prop_drive_folder_id)
+        videos_urls, videos_drive_links = process_files_concurrent(videos_files, property_id, "videos", prop_drive_folder_id)
+        documents_urls, documents_drive_links = process_files_concurrent(documents_files, property_id, "documents", prop_drive_folder_id)
         drive_file_links = photos_drive_links + videos_drive_links + documents_drive_links
         
+        # Prepare property data dictionary
         property_data = {
             "propertyId": property_id,
             "propertyName": property_name,
@@ -415,7 +468,7 @@ def main():
             "dateOfInventoryAdded": timestamp,
             "dateOfStatusLastChecked": timestamp,
             "agentId": agent_id_final,
-            "agentNumber": standardize_phone_number(agent_number_input),
+            "agentNumber": standardize_phone_number(agent_number),
             "agentName": agent_name_final,
             "driveLink": drive_main_link,
             "photos": photos_urls,
@@ -424,20 +477,8 @@ def main():
             "driveFileLinks": drive_file_links
         }
         
-        def sanitize(val):
-            if isinstance(val, str):
-                new_val = val.strip().replace("'", "")
-                try:
-                    if '.' in new_val:
-                        return float(new_val)
-                    elif new_val.isdigit():
-                        return int(new_val)
-                except Exception:
-                    pass
-                return new_val
-            return val
-        
-        sheet_agent_number = standardize_phone_number(agent_number_input)[3:]
+        # Prepare row for Google Sheets
+        sheet_agent_number = strip_plus91(agent_number)
         sheet_row = [
             property_id,
             property_name,
@@ -471,18 +512,19 @@ def main():
             agent_name_final,
             exact_floor
         ]
-        sheet_row = [sanitize(item) for item in sheet_row]
+        
+        try:
+            db.collection("rental-inventories").document(property_id).set(property_data)
+            st.success("Property saved to Firebase!")
+        except Exception as e:
+            st.error(f"Error saving data to Firebase: {e}")
         
         try:
             append_to_google_sheet(sheet_row)
-            db.collection("rental-inventories").document(property_id).set(property_data)
-            st.success("Property saved to Firebase!")
             st.success("Property details appended to Google Sheet!")
             st.success("Submission Successful!")
-            # Optionally, clear the form after submission:
-            # clear_form_callback()
         except Exception as e:
-            st.error(f"Error saving data: {e}")
+            st.error(f"Error appending data to Google Sheet: {e}")
 
 if __name__ == "__main__":
     main()
