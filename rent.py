@@ -113,17 +113,19 @@ gc = init_gspread_client()
 sheet = gc.open_by_key(GSPREAD_SHEET_ID).worksheet("Rental Inventories")
 
 def ensure_sheet_headers():
+    # Updated header list with "Inventory Status" inserted after "Floor Number"
     expected_header = [
         "Property Id", "Property Name", "Property Type", "Plot Size", "SBUA",
-        "Rent Per Month in Lakhs", "Maintenance Charges", "Security Deposit", "Configuration",
+        "Rent Per Month in Lakhs", "Commission Type", "Maintenance Charges", "Security Deposit", "Configuration",
         "Facing", "Furnishing Status", "Micromarket", "Area", "Available From", "Floor Number",
+        "Inventory Status",  # New header column (no input required)
         "Lease Period", "Lock-in Period", "Amenities", "Extra details", "Restrictions",
         "Veg/Non Veg", "Pet friendly", "Drive Link", "mapLocation", "Coordinates",
         "Date of inventory added", "Date of Status Last Checked", "Agent Id", "Agent Number", "Agent Name", "Exact Floor"
     ]
     current_header = sheet.row_values(1)
     if current_header != expected_header:
-        header_range = "A1:AE1"
+        header_range = "A1:AG1"
         sheet.update(header_range, [expected_header])
 
 ensure_sheet_headers()
@@ -292,7 +294,7 @@ def compute_floor_range(exact_floor):
 def clear_form_callback():
     keys_to_clear = [
         "agent_number", "property_type", "property_name", "plot_size", "SBUA",
-        "rent_per_month", "maintenance_charges", "security_deposit", "configuration",
+        "rent_per_month", "commission_type", "maintenance_charges", "security_deposit", "configuration",
         "facing", "furnishing_status", "micromarket", "available_from", "exact_floor",
         "floor_range", "lease_period", "lock_in_period", "amenities", "extra_details",
         "restrictions", "veg_non_veg", "pet_friendly", "mapLocation", "coordinates"
@@ -334,6 +336,8 @@ def main():
         plot_size = st.text_input("Plot Size", key="plot_size").strip().replace("'", "")
         SBUA = st.text_input("SBUA", key="SBUA").strip().replace("'", "")
         rent_per_month = st.text_input("Rent Per Month in Lakhs", key="rent_per_month").strip().replace("'", "")
+        # Commission Type Dropdown with options
+        commission_type = st.selectbox("Commission Type", ["NA","Side by Side", "Commission Sharing"], key="commission_type")
         maintenance_charges = st.selectbox("Maintenance Charges", ["", "Included", "Not included"], key="maintenance_charges")
         security_deposit = st.text_input("Security Deposit", key="security_deposit").strip().replace("'", "")
         
@@ -445,6 +449,7 @@ def main():
             "plotSize": plot_size,
             "SBUA": SBUA,
             "rentPerMonthInLakhs": rent_per_month,
+            "commissionType": commission_type,  # New field added
             "maintenanceCharges": maintenance_charges,
             "securityDeposit": security_deposit,
             "configuration": configuration,
@@ -486,6 +491,7 @@ def main():
             plot_size,
             SBUA,
             rent_per_month,
+            commission_type,  # New field inserted here
             maintenance_charges,
             security_deposit,
             configuration,
@@ -495,6 +501,7 @@ def main():
             area,
             available_from_val,
             floor_range,
+            "",  # Blank for Inventory Status column
             lease_period,
             lock_in_period,
             amenities,
