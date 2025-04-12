@@ -326,7 +326,7 @@ def main():
     
     # Capture property type (do not modify session_state after widget creation)
     property_type = st.selectbox("Property Type", 
-        ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space", "Commercial Property", "Villament"],
+        ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space", "Commercial Property", "Villament","Plot"],
         key="property_type")
     
     with st.form(key="rental_form"):
