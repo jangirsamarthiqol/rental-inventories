@@ -337,7 +337,7 @@ def main():
         SBUA = st.text_input("SBUA", key="SBUA").strip().replace("'", "")
         rent_per_month = st.text_input("Rent Per Month in Lakhs", key="rent_per_month").strip().replace("'", "")
         # Commission Type Dropdown with options
-        commission_type = st.selectbox("Commission Type", ["NA","Side by Side", "Commission Sharing"], key="commission_type")
+        commission_type = st.selectbox("Commission Type", ["NA","Side by Side", "Single Side Commission Split"], key="commission_type")
         maintenance_charges = st.selectbox("Maintenance Charges", ["", "Included", "Not included"], key="maintenance_charges")
         security_deposit = st.text_input("Security Deposit", key="security_deposit").strip().replace("'", "")
         
