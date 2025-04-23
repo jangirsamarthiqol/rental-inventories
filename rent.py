@@ -380,25 +380,25 @@ def process_files_concurrent(files, property_id, folder, drive_folder_id, progre
     file_count = len(files)
     
     # Create a progress bar if a placeholder is provided
-    progress_bar = None
-    if progress_placeholder:
-        progress_bar = progress_placeholder.progress(0, text=f"Uploading {file_count} files...")
+    # progress_bar = None
+    # if progress_placeholder:
+    #     progress_bar = progress_placeholder.progress(0, text=f"Uploading {file_count} files...")
     
-    # Track progress
-    completed = 0
+    # # Track progress
+    # completed = 0
     
-    def update_progress():
-        nonlocal completed
-        completed += 1
-        if progress_bar:
-            progress_bar.progress(completed / file_count, text=f"Uploaded {completed}/{file_count} files")
+    # def update_progress():
+    #     nonlocal completed
+    #     completed += 1
+    #     if progress_bar:
+    #         progress_bar.progress(completed / file_count, text=f"Uploaded {completed}/{file_count} files")
     
     # Determine optimal number of workers based on file count
     max_workers = min(4, file_count)  # Max 4 workers, but no more than needed
     
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
-            executor.submit(upload_single_file, file, property_id, folder, drive_folder_id, update_progress) 
+            executor.submit(upload_single_file, file, property_id, folder, drive_folder_id) 
             for file in files
         ]
         for future in futures:
@@ -409,9 +409,9 @@ def process_files_concurrent(files, property_id, folder, drive_folder_id, progre
                 drive_links.append(dlink)
     
     # Complete the progress bar
-    if progress_bar:
-        progress_bar.progress(1.0, text="File upload complete!")
-        time.sleep(0.5)  # Give users a moment to see the completion
+    # if progress_bar:
+    #     progress_bar.progress(1.0, text="File upload complete!")
+    #     time.sleep(0.5)  # Give users a moment to see the completion
     
     return firebase_urls, drive_links
 
@@ -475,7 +475,7 @@ def main():
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
             st.subheader("Agent Details")
             agent_number = st.text_input("Agent Number (Phone Number)", key="agent_number", placeholder="+91XXXXXXXXXX").strip()
             
@@ -493,7 +493,7 @@ def main():
                         st.markdown("<div class='error-message'>Agent not found.</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
             
-            st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
             st.subheader("Property Type & Location")
             
             # Initialize session_state for property_type if not already set
@@ -518,7 +518,7 @@ def main():
             st.markdown("</div>", unsafe_allow_html=True)
         
         # with col2:
-            st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
             st.subheader("Basic Property Details")
             property_name = st.text_input("Property Name", key="property_name", placeholder="Enter property name").strip().replace("'", "")
             
@@ -541,7 +541,7 @@ def main():
             maintenance_charges = st.selectbox("Maintenance Charges", ["", "Included", "Not included"], key="maintenance_charges")
             st.markdown("</div>", unsafe_allow_html=True)
             
-            st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
             st.subheader("Property Configuration")
             # Configuration based on property type
             if property_type.strip().lower() in ["apartment", "duplex", "triplex", "villa"]:
@@ -572,7 +572,7 @@ def main():
         
         # Create expanded sections for additional details
         # with st.expander("📅 Availability & Lease Details", expanded=False):
-            st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
             avail_col1, avail_col2 = st.columns(2)
             
             with avail_col1:
@@ -605,7 +605,7 @@ def main():
             st.markdown("</div>", unsafe_allow_html=True)
         
         # with st.expander("🏠 Property Features & Restrictions", expanded=False):
-            st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
             amenities = st.text_input("Amenities", key="amenities", placeholder="e.g., Swimming pool, Gym, Club house").strip().replace("'", "")
             extra_details = st.text_area("Extra details", key="extra_details", placeholder="Any additional information about the property").strip().replace("'", "")
             restrictions = st.text_area("Restrictions", key="restrictions", placeholder="Any restrictions for tenants").strip().replace("'", "")
@@ -618,7 +618,7 @@ def main():
             st.markdown("</div>", unsafe_allow_html=True)
         
         # with st.expander("📸 Media Uploads", expanded=False):
-            st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
             photos_files = st.file_uploader("Upload Photos", 
                                         type=["jpg", "jpeg", "png"], 
                                         accept_multiple_files=True, 
@@ -648,7 +648,7 @@ def main():
             st.markdown("</div>", unsafe_allow_html=True)
         
         # Add a submit button with a clear visual style
-        st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
         submit_col1, submit_col2 = st.columns([3, 1])
         with submit_col1:
             submit_button = st.button("📝 SUBMIT INVENTORY", use_container_width=True)
@@ -673,39 +673,39 @@ def main():
                     st.markdown(f"<div class='error-message'>Please fill in the following required fields: {', '.join(missing_fields)}</div>", unsafe_allow_html=True)
                 else:
                     # Create progress tracking
-                    progress_bar = st.progress(0, text="Starting submission process...")
+                    # progress_bar = st.progress(0, text="Starting submission process...")
                     
                     # Step 1: Initialize property ID (10%)
-                    progress_bar.progress(0.1, text="Generating property ID...")
+                    # progress_bar.progress(0.1, text="Generating property ID...")
                     property_id = generate_property_id()
                     st.info(f"Property ID: {property_id}")
                     time.sleep(0.5)  # Small delay for UI feedback
                     
                     # Step 2: Create Drive folder (20%)
-                    progress_bar.progress(0.2, text="Creating Drive folder...")
+                    # progress_bar.progress(0.2, text="Creating Drive folder...")
                     if drive_service is None:
                         drive_service = init_drive_service()
                     prop_drive_folder_id = create_drive_folder(property_id, PARENT_FOLDER_ID)
                     drive_main_link = f"https://drive.google.com/drive/folders/{prop_drive_folder_id}" if prop_drive_folder_id else ""
                     if drive_main_link:
                         st.info(f"Drive Folder: [Open Folder]({drive_main_link})")
-                    progress_bar.progress(0.3, text="Drive folder created")
+                    # progress_bar.progress(0.3, text="Drive folder created")
                     
                     # Step 3: Fetch agent details if not already fetched (40%)
-                    progress_bar.progress(0.4, text="Verifying agent details...")
+                    # progress_bar.progress(0.4, text="Verifying agent details...")
                     if not agent_id_final or not agent_name_final:
                         agent_id_final, agent_name_final = fetch_agent_details(agent_number)
                         agent_id_final = agent_id_final or ""
                         agent_name_final = agent_name_final or ""
                     
                     # Step 4: Prepare basic data (50%)
-                    progress_bar.progress(0.5, text="Preparing property data...")
+                    # progress_bar.progress(0.5, text="Preparing property data...")
                     now = datetime.datetime.now()
                     timestamp = int(now.timestamp())
                     geoloc = parse_coordinates(coordinates)
                     
                     # Step 5: Upload media files (60-80%)
-                    progress_bar.progress(0.6, text="Uploading media files...")
+                    # progress_bar.progress(0.6, text="Uploading media files...")
                     
                     # Create a placeholder for the file upload progress
                     upload_progress = st.empty()
@@ -726,7 +726,7 @@ def main():
                     drive_file_links = photos_drive_links + videos_drive_links + documents_drive_links
                     
                     # Step 6: Prepare property data dictionary (90%)
-                    progress_bar.progress(0.9, text="Saving property data...")
+                    # progress_bar.progress(0.9, text="Saving property data...")
                     
                     # Prepare property data dictionary
                     property_data = {
@@ -826,7 +826,7 @@ def main():
                         logger.error(f"Sheet error: {e}")
                     
                     # Final progress update
-                    progress_bar.progress(1.0, text="Submission complete!")
+                    # progress_bar.progress(1.0, text="Submission complete!")
                     
                     # Show success or error message
                     if firebase_success and sheet_success:
