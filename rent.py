@@ -451,7 +451,6 @@ def clear_form_callback():
 def main():
     # Initialize services only when needed (lazy loading)
     global db, bucket, gcs_client, gc, sheet, drive_service
-    
     st.title("🏠 Rental Inventory System")
     
     col1, col2 = st.columns([1, 4])
@@ -460,418 +459,422 @@ def main():
             clear_form_callback()
     
     # Layout with tabs for better organization
-    tab1, tab2 = st.tabs(["📝 Submit New Inventory", "ℹ️ Help"])
+    # tab1, tab2 = st.tabs(["📝 Submit New Inventory",""])
     
-    with tab1:
-        # Initialize needed services for this tab
-        if db is None:
-            db, bucket, gcs_client = init_firebase()
-        if gc is None:
-            gc = init_gspread_client()
-            sheet = gc.open_by_key(GSPREAD_SHEET_ID).worksheet("Rental Inventories")
-            ensure_sheet_headers()
-        
-        # Create a multi-column layout
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-            st.subheader("Agent Details")
-            agent_number = st.text_input("Agent Number (Phone Number)", key="agent_number", placeholder="+91XXXXXXXXXX").strip()
-            
-            agent_id_final = ""
-            agent_name_final = ""
-            
-            if st.button("🔍 Fetch Agent", key="fetch_agent_details"):
-                with st.spinner("Looking up agent..."):
-                    a_id, a_name = fetch_agent_details(agent_number)
-                    if a_id:
-                        st.markdown(f"<div class='success-message'>Agent Found: {a_name} (ID: {a_id})</div>", unsafe_allow_html=True)
-                        agent_id_final = a_id
-                        agent_name_final = a_name
-                    else:
-                        st.markdown("<div class='error-message'>Agent not found.</div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-            st.subheader("Property Type & Location")
-            
-            # Initialize session_state for property_type if not already set
-            if "property_type" not in st.session_state:
-                st.session_state["property_type"] = ""
-            
-            property_type = st.selectbox("Property Type", 
-                ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space", "Commercial Property", "Villament", "Plot"],
-                key="property_type")
-            
-            # Property location details
-            micromarket_selected = st.multiselect("Select Micromarket", options=all_micromarkets, 
-                                               help="Search and select one micromarket", key="micromarket")
-            micromarket = micromarket_selected[0] if micromarket_selected else ""
-            area = find_area(micromarket) if micromarket else ""
-            
-            if area:
-                st.info(f"Selected Area: {area}")
-                
-            mapLocation = st.text_input("Map Location", key="mapLocation", placeholder="e.g., Koramangala 6th Block").strip().replace("'", "")
-            coordinates = st.text_input("Coordinates (lat, lng)", key="coordinates", placeholder="12.9716, 77.5946").strip().replace("'", "")
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        # with col2:
-            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-            st.subheader("Basic Property Details")
-            property_name = st.text_input("Property Name", key="property_name", placeholder="Enter property name").strip().replace("'", "")
-            
-            # Layout for property dimensions
-            dim_col1, dim_col2 = st.columns(2)
-            with dim_col1:
-                plot_size = st.text_input("Plot Size", key="plot_size", placeholder="e.g., 2400 sq.ft").strip().replace("'", "")
-            with dim_col2:
-                SBUA = st.text_input("SBUA", key="SBUA", placeholder="e.g., 1800 sq.ft").strip().replace("'", "")
-            
-            # Layout for financial details
-            fin_col1, fin_col2, fin_col3 = st.columns(3)
-            with fin_col1:
-                rent_per_month = st.text_input("Rent Per Month (Lakhs)", key="rent_per_month", placeholder="e.g., 1.5").strip().replace("'", "")
-            with fin_col2:
-                commission_type = st.selectbox("Commission Type", ["NA", "Side by Side", "Single Side Commission Split"], key="commission_type")
-            with fin_col3:
-                security_deposit = st.text_input("Security Deposit", key="security_deposit", placeholder="e.g., 3 months rent").strip().replace("'", "")
-                
-            maintenance_charges = st.selectbox("Maintenance Charges", ["", "Included", "Not included"], key="maintenance_charges")
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-            st.subheader("Property Configuration")
-            # Configuration based on property type
-            if property_type.strip().lower() in ["apartment", "duplex", "triplex", "villa"]:
-                configuration = st.selectbox("Configuration", 
-                                         ["", "1 BHK", "2 BHK", "2.5 BHK", "3 BHK", "3.5 BHK", "4 BHK", 
-                                          "4.5 BHK", "5 BHK", "5.5 BHK", "6 BHK", "6.5 BHK", "7 BHK", 
-                                          "7.5 BHK", "8 BHK", "8.5 BHK", "9 BHK", "9.5 BHK", "10 BHK"], 
-                                         key="configuration")
-            elif property_type.strip().lower() == "studio":
-                configuration = "Studio"
-                st.info("Configuration auto-set as 'Studio'")
-            else:
-                configuration = st.text_input("Configuration", key="configuration", placeholder="Enter configuration details").strip().replace("'", "")
-                
-            # Layout for property features
-            feat_col1, feat_col2 = st.columns(2)
-            with feat_col1:
-                facing = st.selectbox("Facing", 
-                                    ["", "East", "North", "West", "South", 
-                                     "North-East", "North-West", "South-East", "South-West"], 
-                                    key="facing")
-            with feat_col2:
-                furnishing_status = st.selectbox("Furnishing Status", 
-                                             ["", "Fully Furnished", "Semi Furnished", "Warm Shell", 
-                                              "Bare Shell", "Plug & Play"], 
-                                             key="furnishing_status")
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Create expanded sections for additional details
-        # with st.expander("📅 Availability & Lease Details", expanded=False):
-            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-            avail_col1, avail_col2 = st.columns(2)
-            
-            with avail_col1:
-                ready_to_move = st.checkbox("Ready to Move", key="ready_to_move")
-                if ready_to_move:
-                    available_from_val = "Ready-to-move"
-                    st.info("Property is available immediately")
-                else:
-                    available_from_date = st.date_input("Available From", datetime.date.today(), key="available_from")
-                    available_from_val = available_from_date.strftime("%Y-%m-%d")
-            
-            with avail_col2:
-                exact_floor = st.text_input("Exact Floor (numeric)", key="exact_floor", placeholder="e.g., 5").strip().replace("'", "")
-                if exact_floor:
-                    computed_floor_range = compute_floor_range(exact_floor)
-                    st.info(f"Floor Range: {computed_floor_range}")
-                    floor_range = computed_floor_range
-                else:
-                    floor_range = st.selectbox("Floor Range", 
-                                           ["", "NA", "Ground Floor", "Lower Floor (1-5)", 
-                                            "Middle Floor (6-10)", "Higher Floor (10+)", 
-                                            "Higher Floor (20+)", "Top Floor"], 
-                                           key="floor_range")
-            
-            lease_col1, lease_col2 = st.columns(2)
-            with lease_col1:
-                lease_period = st.text_input("Lease Period", key="lease_period", placeholder="e.g., 11 months").strip().replace("'", "")
-            with lease_col2:
-                lock_in_period = st.text_input("Lock-in Period", key="lock_in_period", placeholder="e.g., 6 months").strip().replace("'", "")
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        # with st.expander("🏠 Property Features & Restrictions", expanded=False):
-            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-            amenities = st.text_input("Amenities", key="amenities", placeholder="e.g., Swimming pool, Gym, Club house").strip().replace("'", "")
-            extra_details = st.text_area("Extra details", key="extra_details", placeholder="Any additional information about the property").strip().replace("'", "")
-            restrictions = st.text_area("Restrictions", key="restrictions", placeholder="Any restrictions for tenants").strip().replace("'", "")
-            
-            rest_col1, rest_col2 = st.columns(2)
-            with rest_col1:
-                veg_non_veg = st.selectbox("Veg/Non Veg", ["", "Veg Only", "Both"], key="veg_non_veg")
-            with rest_col2:
-                pet_friendly = st.selectbox("Pet friendly", ["", "Yes", "No", "Conditional"], key="pet_friendly")
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        # with st.expander("📸 Media Uploads", expanded=False):
-            # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-            photos_files = st.file_uploader("Upload Photos", 
-                                        type=["jpg", "jpeg", "png"], 
-                                        accept_multiple_files=True, 
-                                        key="photos_files",
-                                        help="Upload property photos (JPG, PNG)")
-            
-            if photos_files:
-                st.success(f"{len(photos_files)} photos selected")
-                
-            videos_files = st.file_uploader("Upload Videos", 
-                                        type=["mp4", "mov", "avi"], 
-                                        accept_multiple_files=True, 
-                                        key="videos_files",
-                                        help="Upload property videos (MP4, MOV, AVI)")
-            
-            if videos_files:
-                st.success(f"{len(videos_files)} videos selected")
-                
-            documents_files = st.file_uploader("Upload Documents", 
-                                           type=["pdf", "doc", "docx"], 
-                                           accept_multiple_files=True, 
-                                           key="documents_files",
-                                           help="Upload property documents (PDF, DOC, DOCX)")
-            
-            if documents_files:
-                st.success(f"{len(documents_files)} documents selected")
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Add a submit button with a clear visual style
+# with tab1:
+    # Initialize needed services for this tab
+    if db is None:
+        db, bucket, gcs_client = init_firebase()
+    if gc is None:
+        gc = init_gspread_client()
+        sheet = gc.open_by_key(GSPREAD_SHEET_ID).worksheet("Rental Inventories")
+        ensure_sheet_headers()
+    
+    # Create a multi-column layout
+    col1, col2 = st.columns(2)
+    
+    with col1:
         # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-        submit_col1, submit_col2 = st.columns([3, 1])
-        with submit_col1:
-            submit_button = st.button("📝 SUBMIT INVENTORY", use_container_width=True)
+        st.subheader("Agent Details")
+        agent_number = st.text_input("Agent Number (Phone Number)", key="agent_number", placeholder="+91XXXXXXXXXX").strip()
+        
+        agent_id_final = ""
+        agent_name_final = ""
+        
+        if st.button("🔍 Fetch Agent", key="fetch_agent_details"):
+            with st.spinner("Looking up agent..."):
+                a_id, a_name = fetch_agent_details(agent_number)
+                if a_id:
+                    st.markdown(f"<div class='success-message'>Agent Found: {a_name} (ID: {a_id})</div>", unsafe_allow_html=True)
+                    agent_id_final = a_id
+                    agent_name_final = a_name
+                else:
+                    st.markdown("<div class='error-message'>Agent not found.</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # Process form submission
-        if submit_button:
-            # Create a container for submission progress
-            submission_container = st.empty()
-            with submission_container.container():
-                # Validate required fields
-                required_fields = {
-                    "Property Name": property_name,
-                    "Property Type": property_type,
-                    "Agent Number": agent_number,
-                    "Micromarket": micromarket
+        # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.subheader("Property Type & Location")
+        
+        # Initialize session_state for property_type if not already set
+        if "property_type" not in st.session_state:
+            st.session_state["property_type"] = ""
+        
+        property_type = st.selectbox("Property Type", 
+            ["", "Apartment", "Studio", "Duplex", "Triplex", "Villa", "Office Space", "Retail Space", "Commercial Property", "Villament", "Plot"],
+            key="property_type")
+        
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # with col2:
+        # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.subheader("Basic Property Details")
+        property_name = st.text_input("Property Name", key="property_name", placeholder="Enter property name").strip().replace("'", "")
+        
+        # Layout for property dimensions
+        dim_col1, dim_col2 = st.columns(2)
+        with dim_col1:
+            plot_size = st.text_input("Plot Size", key="plot_size", placeholder="e.g., 2400 sq.ft").strip().replace("'", "")
+        with dim_col2:
+            SBUA = st.text_input("SBUA", key="SBUA", placeholder="e.g., 1800 sq.ft").strip().replace("'", "")
+        
+        # Layout for financial details
+        fin_col1, fin_col2, fin_col3 = st.columns(3)
+        with fin_col1:
+            rent_per_month = st.text_input("Rent Per Month (Lakhs)", key="rent_per_month", placeholder="e.g., 1.5").strip().replace("'", "")
+        with fin_col2:
+            commission_type = st.selectbox("Commission Type", ["NA", "Side by Side", "Single Side Commission Split"], key="commission_type")
+        with fin_col3:
+            security_deposit = st.text_input("Security Deposit", key="security_deposit", placeholder="e.g., 3 months rent").strip().replace("'", "")
+            
+        maintenance_charges = st.selectbox("Maintenance Charges", ["", "Included", "Not included"], key="maintenance_charges")
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        st.subheader("Property Configuration")
+        # Configuration based on property type
+        if property_type.strip().lower() in ["apartment", "duplex", "triplex", "villa"]:
+            configuration = st.selectbox("Configuration", 
+                                        ["", "1 BHK", "2 BHK", "2.5 BHK", "3 BHK", "3.5 BHK", "4 BHK", 
+                                        "4.5 BHK", "5 BHK", "5.5 BHK", "6 BHK", "6.5 BHK", "7 BHK", 
+                                        "7.5 BHK", "8 BHK", "8.5 BHK", "9 BHK", "9.5 BHK", "10 BHK"], 
+                                        key="configuration")
+        elif property_type.strip().lower() == "studio":
+            configuration = "Studio"
+            st.info("Configuration auto-set as 'Studio'")
+        else:
+            configuration = st.text_input("Configuration", key="configuration", placeholder="Enter configuration details").strip().replace("'", "")
+            
+        # Layout for property features
+        feat_col1, feat_col2 = st.columns(2)
+        with feat_col1:
+            facing = st.selectbox("Facing", 
+                                ["", "East", "North", "West", "South", 
+                                    "North-East", "North-West", "South-East", "South-West"], 
+                                key="facing")
+        with feat_col2:
+            furnishing_status = st.selectbox("Furnishing Status", 
+                                            ["", "Fully Furnished", "Semi Furnished", "Warm Shell", 
+                                            "Bare Shell", "Plug & Play"], 
+                                            key="furnishing_status")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Create expanded sections for additional details
+    # with st.expander("📅 Availability & Lease Details", expanded=False):
+        # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        avail_col1, avail_col2 = st.columns(2)
+        
+        with avail_col1:
+            st.markdown("<div style='margin-top: 44px;'>", unsafe_allow_html=True)
+            ready_to_move = st.checkbox("Ready to Move", key="ready_to_move")
+            if ready_to_move:
+                available_from_val = "Ready-to-move"
+                st.info("Property is available immediately")
+            else:
+                available_from_date = st.date_input("Available From", datetime.date.today(), key="available_from")
+                available_from_val = available_from_date.strftime("%Y-%m-%d")
+        
+        with avail_col2:
+            exact_floor = st.text_input("Exact Floor (numeric)", key="exact_floor", placeholder="e.g., 5").strip().replace("'", "")
+            if exact_floor:
+                computed_floor_range = compute_floor_range(exact_floor)
+                st.info(f"Floor Range: {computed_floor_range}")
+                floor_range = computed_floor_range
+            else:
+                floor_range = st.selectbox("Floor Range", 
+                                       ["", "NA", "Ground Floor", "Lower Floor (1-5)", 
+                                        "Middle Floor (6-10)", "Higher Floor (10+)", 
+                                        "Higher Floor (20+)", "Top Floor"], 
+                                       key="floor_range")
+        
+        lease_col1, lease_col2 = st.columns(2)
+        with lease_col1:
+            lease_period = st.text_input("Lease Period", key="lease_period", placeholder="e.g., 11 months").strip().replace("'", "")
+        with lease_col2:
+            lock_in_period = st.text_input("Lock-in Period", key="lock_in_period", placeholder="e.g., 6 months").strip().replace("'", "")
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # with st.expander("🏠 Property Features & Restrictions", expanded=False):
+        # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        amenities = st.text_input("Amenities", key="amenities", placeholder="e.g., Swimming pool, Gym, Club house").strip().replace("'", "")
+        extra_details = st.text_area("Extra details", key="extra_details", placeholder="Any additional information about the property").strip().replace("'", "")
+        restrictions = st.text_area("Restrictions", key="restrictions", placeholder="Any restrictions for tenants").strip().replace("'", "")
+        
+        rest_col1, rest_col2 = st.columns(2)
+        with rest_col1:
+            veg_non_veg = st.selectbox("Veg/Non Veg", ["", "Veg Only", "Both"], key="veg_non_veg")
+        with rest_col2:
+            pet_friendly = st.selectbox("Pet friendly", ["", "Yes", "No", "Conditional"], key="pet_friendly")
+        
+        # Property location details
+        micromarket_selected = st.multiselect("Select Micromarket", options=all_micromarkets, 
+                                            help="Search and select one micromarket", key="micromarket")
+        micromarket = micromarket_selected[0] if micromarket_selected else ""
+        area = find_area(micromarket) if micromarket else ""
+        
+        if area:
+            st.info(f"Selected Area: {area}")
+            
+        mapLocation = st.text_input("Map Location", key="mapLocation", placeholder="e.g., Koramangala 6th Block").strip().replace("'", "")
+        coordinates = st.text_input("Coordinates (lat, lng)", key="coordinates", placeholder="12.9716, 77.5946").strip().replace("'", "")
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # with st.expander("📸 Media Uploads", expanded=False):
+        # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+        photos_files = st.file_uploader("Upload Photos", 
+                                    type=["jpg", "jpeg", "png"], 
+                                    accept_multiple_files=True, 
+                                    key="photos_files",
+                                    help="Upload property photos (JPG, PNG)")
+        
+        if photos_files:
+            st.success(f"{len(photos_files)} photos selected")
+            
+        videos_files = st.file_uploader("Upload Videos", 
+                                    type=["mp4", "mov", "avi"], 
+                                    accept_multiple_files=True, 
+                                    key="videos_files",
+                                    help="Upload property videos (MP4, MOV, AVI)")
+        
+        if videos_files:
+            st.success(f"{len(videos_files)} videos selected")
+            
+        documents_files = st.file_uploader("Upload Documents", 
+                                        type=["pdf", "doc", "docx"], 
+                                        accept_multiple_files=True, 
+                                        key="documents_files",
+                                        help="Upload property documents (PDF, DOC, DOCX)")
+        
+        if documents_files:
+            st.success(f"{len(documents_files)} documents selected")
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Add a submit button with a clear visual style
+    # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
+    submit_col1, submit_col2 = st.columns([3, 1])
+    with submit_col1:
+        submit_button = st.button("📝 SUBMIT INVENTORY", use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Process form submission
+    if submit_button:
+        # Create a container for submission progress
+        submission_container = st.empty()
+        with submission_container.container():
+            # Validate required fields
+            required_fields = {
+                "Property Name": property_name,
+                "Property Type": property_type,
+                "Agent Number": agent_number,
+                "Micromarket": micromarket
+            }
+            
+            missing_fields = [field for field, value in required_fields.items() if not value]
+            
+            if missing_fields:
+                st.markdown(f"<div class='error-message'>Please fill in the following required fields: {', '.join(missing_fields)}</div>", unsafe_allow_html=True)
+            else:
+                # Create progress tracking
+                # progress_bar = st.progress(0, text="Starting submission process...")
+                
+                # Step 1: Initialize property ID (10%)
+                # progress_bar.progress(0.1, text="Generating property ID...")
+                property_id = generate_property_id()
+                st.info(f"Property ID: {property_id}")
+                time.sleep(0.5)  # Small delay for UI feedback
+                
+                # Step 2: Create Drive folder (20%)
+                # progress_bar.progress(0.2, text="Creating Drive folder...")
+                if drive_service is None:
+                    drive_service = init_drive_service()
+                prop_drive_folder_id = create_drive_folder(property_id, PARENT_FOLDER_ID)
+                drive_main_link = f"https://drive.google.com/drive/folders/{prop_drive_folder_id}" if prop_drive_folder_id else ""
+                if drive_main_link:
+                    st.info(f"Drive Folder: [Open Folder]({drive_main_link})")
+                # progress_bar.progress(0.3, text="Drive folder created")
+                
+                # Step 3: Fetch agent details if not already fetched (40%)
+                # progress_bar.progress(0.4, text="Verifying agent details...")
+                if not agent_id_final or not agent_name_final:
+                    agent_id_final, agent_name_final = fetch_agent_details(agent_number)
+                    agent_id_final = agent_id_final or ""
+                    agent_name_final = agent_name_final or ""
+                
+                # Step 4: Prepare basic data (50%)
+                # progress_bar.progress(0.5, text="Preparing property data...")
+                now = datetime.datetime.now()
+                timestamp = int(now.timestamp())
+                geoloc = parse_coordinates(coordinates)
+                
+                # Step 5: Upload media files (60-80%)
+                # progress_bar.progress(0.6, text="Uploading media files...")
+                
+                # Create a placeholder for the file upload progress
+                upload_progress = st.empty()
+                
+                # Process media uploads concurrently with separate progress tracking
+                photos_urls, photos_drive_links = process_files_concurrent(
+                    photos_files, property_id, "photos", prop_drive_folder_id, upload_progress
+                )
+                
+                videos_urls, videos_drive_links = process_files_concurrent(
+                    videos_files, property_id, "videos", prop_drive_folder_id, upload_progress
+                )
+                
+                documents_urls, documents_drive_links = process_files_concurrent(
+                    documents_files, property_id, "documents", prop_drive_folder_id, upload_progress
+                )
+                
+                drive_file_links = photos_drive_links + videos_drive_links + documents_drive_links
+                
+                # Step 6: Prepare property data dictionary (90%)
+                # progress_bar.progress(0.9, text="Saving property data...")
+                
+                # Prepare property data dictionary
+                property_data = {
+                    "propertyId": property_id,
+                    "propertyName": property_name,
+                    "propertyType": property_type,
+                    "plotSize": plot_size,
+                    "SBUA": SBUA,
+                    "rentPerMonthInLakhs": rent_per_month,
+                    "commissionType": commission_type,
+                    "maintenanceCharges": maintenance_charges,
+                    "securityDeposit": security_deposit,
+                    "configuration": configuration,
+                    "facing": facing,
+                    "furnishingStatus": furnishing_status,
+                    "micromarket": micromarket,
+                    "area": area,
+                    "availableFrom": available_from_val,
+                    "floorNumber": floor_range,
+                    "exactFloor": exact_floor,
+                    "leasePeriod": lease_period,
+                    "lockInPeriod": lock_in_period,
+                    "amenities": amenities,
+                    "extraDetails": extra_details,
+                    "restrictions": restrictions,
+                    "vegNonVeg": veg_non_veg,
+                    "petFriendly": pet_friendly,
+                    "mapLocation": mapLocation,
+                    "coordinates": coordinates,
+                    "_geoloc": geoloc,
+                    "dateOfInventoryAdded": timestamp,
+                    "dateOfStatusLastChecked": timestamp,
+                    "agentId": agent_id_final,
+                    "agentNumber": standardize_phone_number(agent_number),
+                    "agentName": agent_name_final,
+                    "driveLink": drive_main_link,
+                    "photos": photos_urls,
+                    "videos": videos_urls,
+                    "documents": documents_urls,
+                    "driveFileLinks": drive_file_links,
+                    "inventoryStatus": "Available"  # Default status for new listings
                 }
                 
-                missing_fields = [field for field, value in required_fields.items() if not value]
+                # Prepare row for Google Sheets
+                sheet_agent_number = strip_plus91(agent_number)
+                sheet_row = [
+                    property_id,
+                    property_name,
+                    property_type,
+                    plot_size,
+                    SBUA,
+                    rent_per_month,
+                    commission_type,
+                    maintenance_charges,
+                    security_deposit,
+                    configuration,
+                    facing,
+                    furnishing_status,
+                    micromarket,
+                    area,
+                    available_from_val,
+                    floor_range,
+                    "Available",  # Default for Inventory Status column
+                    lease_period,
+                    lock_in_period,
+                    amenities,
+                    extra_details,
+                    restrictions,
+                    veg_non_veg,
+                    pet_friendly,
+                    drive_main_link,
+                    mapLocation,
+                    coordinates,
+                    now.strftime("%Y-%m-%d"),
+                    now.strftime("%Y-%m-%d"),
+                    agent_id_final,
+                    sheet_agent_number,
+                    agent_name_final,
+                    exact_floor
+                ]
                 
-                if missing_fields:
-                    st.markdown(f"<div class='error-message'>Please fill in the following required fields: {', '.join(missing_fields)}</div>", unsafe_allow_html=True)
+                # Step 7: Save to Firebase and Google Sheets (100%)
+                firebase_success = False
+                sheet_success = False
+                
+                try:
+                    db.collection("rental-inventories").document(property_id).set(property_data)
+                    firebase_success = True
+                except Exception as e:
+                    st.error(f"Error saving data to Firebase: {e}")
+                    logger.error(f"Firebase error: {e}")
+                
+                try:
+                    sheet_success = append_to_google_sheet(sheet_row)
+                except Exception as e:
+                    st.error(f"Error appending data to Google Sheet: {e}")
+                    logger.error(f"Sheet error: {e}")
+                
+                # Final progress update
+                # progress_bar.progress(1.0, text="Submission complete!")
+                
+                # Show success or error message
+                if firebase_success and sheet_success:
+                    st.markdown("""
+                    <div class='success-message'>
+                        <h3>✅ Submission Successful!</h3>
+                        <p>Property has been added to both Firebase and Google Sheets.</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Show property summary
+                    with st.expander("View Property Summary", expanded=True):
+                        summary_col1, summary_col2 = st.columns(2)
+                        with summary_col1:
+                            st.write("**Property ID:**", property_id)
+                            st.write("**Property Name:**", property_name)
+                            st.write("**Property Type:**", property_type)
+                            st.write("**Location:**", micromarket)
+                            st.write("**Configuration:**", configuration)
+                        with summary_col2:
+                            st.write("**Rent:**", f"₹{rent_per_month} Lakhs/month")
+                            st.write("**Agent:**", agent_name_final)
+                            st.write("**Floor:**", floor_range)
+                            st.write("**Availability:**", available_from_val)
+                            if drive_main_link:
+                                st.write("**Drive Link:**", f"[Open Folder]({drive_main_link})")
+                    
+                    # Add a button to add another property
+                    if st.button("Add Another Property"):
+                        clear_form_callback()
                 else:
-                    # Create progress tracking
-                    # progress_bar = st.progress(0, text="Starting submission process...")
-                    
-                    # Step 1: Initialize property ID (10%)
-                    # progress_bar.progress(0.1, text="Generating property ID...")
-                    property_id = generate_property_id()
-                    st.info(f"Property ID: {property_id}")
-                    time.sleep(0.5)  # Small delay for UI feedback
-                    
-                    # Step 2: Create Drive folder (20%)
-                    # progress_bar.progress(0.2, text="Creating Drive folder...")
-                    if drive_service is None:
-                        drive_service = init_drive_service()
-                    prop_drive_folder_id = create_drive_folder(property_id, PARENT_FOLDER_ID)
-                    drive_main_link = f"https://drive.google.com/drive/folders/{prop_drive_folder_id}" if prop_drive_folder_id else ""
-                    if drive_main_link:
-                        st.info(f"Drive Folder: [Open Folder]({drive_main_link})")
-                    # progress_bar.progress(0.3, text="Drive folder created")
-                    
-                    # Step 3: Fetch agent details if not already fetched (40%)
-                    # progress_bar.progress(0.4, text="Verifying agent details...")
-                    if not agent_id_final or not agent_name_final:
-                        agent_id_final, agent_name_final = fetch_agent_details(agent_number)
-                        agent_id_final = agent_id_final or ""
-                        agent_name_final = agent_name_final or ""
-                    
-                    # Step 4: Prepare basic data (50%)
-                    # progress_bar.progress(0.5, text="Preparing property data...")
-                    now = datetime.datetime.now()
-                    timestamp = int(now.timestamp())
-                    geoloc = parse_coordinates(coordinates)
-                    
-                    # Step 5: Upload media files (60-80%)
-                    # progress_bar.progress(0.6, text="Uploading media files...")
-                    
-                    # Create a placeholder for the file upload progress
-                    upload_progress = st.empty()
-                    
-                    # Process media uploads concurrently with separate progress tracking
-                    photos_urls, photos_drive_links = process_files_concurrent(
-                        photos_files, property_id, "photos", prop_drive_folder_id, upload_progress
-                    )
-                    
-                    videos_urls, videos_drive_links = process_files_concurrent(
-                        videos_files, property_id, "videos", prop_drive_folder_id, upload_progress
-                    )
-                    
-                    documents_urls, documents_drive_links = process_files_concurrent(
-                        documents_files, property_id, "documents", prop_drive_folder_id, upload_progress
-                    )
-                    
-                    drive_file_links = photos_drive_links + videos_drive_links + documents_drive_links
-                    
-                    # Step 6: Prepare property data dictionary (90%)
-                    # progress_bar.progress(0.9, text="Saving property data...")
-                    
-                    # Prepare property data dictionary
-                    property_data = {
-                        "propertyId": property_id,
-                        "propertyName": property_name,
-                        "propertyType": property_type,
-                        "plotSize": plot_size,
-                        "SBUA": SBUA,
-                        "rentPerMonthInLakhs": rent_per_month,
-                        "commissionType": commission_type,
-                        "maintenanceCharges": maintenance_charges,
-                        "securityDeposit": security_deposit,
-                        "configuration": configuration,
-                        "facing": facing,
-                        "furnishingStatus": furnishing_status,
-                        "micromarket": micromarket,
-                        "area": area,
-                        "availableFrom": available_from_val,
-                        "floorNumber": floor_range,
-                        "exactFloor": exact_floor,
-                        "leasePeriod": lease_period,
-                        "lockInPeriod": lock_in_period,
-                        "amenities": amenities,
-                        "extraDetails": extra_details,
-                        "restrictions": restrictions,
-                        "vegNonVeg": veg_non_veg,
-                        "petFriendly": pet_friendly,
-                        "mapLocation": mapLocation,
-                        "coordinates": coordinates,
-                        "_geoloc": geoloc,
-                        "dateOfInventoryAdded": timestamp,
-                        "dateOfStatusLastChecked": timestamp,
-                        "agentId": agent_id_final,
-                        "agentNumber": standardize_phone_number(agent_number),
-                        "agentName": agent_name_final,
-                        "driveLink": drive_main_link,
-                        "photos": photos_urls,
-                        "videos": videos_urls,
-                        "documents": documents_urls,
-                        "driveFileLinks": drive_file_links,
-                        "inventoryStatus": "Available"  # Default status for new listings
-                    }
-                    
-                    # Prepare row for Google Sheets
-                    sheet_agent_number = strip_plus91(agent_number)
-                    sheet_row = [
-                        property_id,
-                        property_name,
-                        property_type,
-                        plot_size,
-                        SBUA,
-                        rent_per_month,
-                        commission_type,
-                        maintenance_charges,
-                        security_deposit,
-                        configuration,
-                        facing,
-                        furnishing_status,
-                        micromarket,
-                        area,
-                        available_from_val,
-                        floor_range,
-                        "Available",  # Default for Inventory Status column
-                        lease_period,
-                        lock_in_period,
-                        amenities,
-                        extra_details,
-                        restrictions,
-                        veg_non_veg,
-                        pet_friendly,
-                        drive_main_link,
-                        mapLocation,
-                        coordinates,
-                        now.strftime("%Y-%m-%d"),
-                        now.strftime("%Y-%m-%d"),
-                        agent_id_final,
-                        sheet_agent_number,
-                        agent_name_final,
-                        exact_floor
-                    ]
-                    
-                    # Step 7: Save to Firebase and Google Sheets (100%)
-                    firebase_success = False
-                    sheet_success = False
-                    
-                    try:
-                        db.collection("rental-inventories").document(property_id).set(property_data)
-                        firebase_success = True
-                    except Exception as e:
-                        st.error(f"Error saving data to Firebase: {e}")
-                        logger.error(f"Firebase error: {e}")
-                    
-                    try:
-                        sheet_success = append_to_google_sheet(sheet_row)
-                    except Exception as e:
-                        st.error(f"Error appending data to Google Sheet: {e}")
-                        logger.error(f"Sheet error: {e}")
-                    
-                    # Final progress update
-                    # progress_bar.progress(1.0, text="Submission complete!")
-                    
-                    # Show success or error message
-                    if firebase_success and sheet_success:
-                        st.markdown("""
-                        <div class='success-message'>
-                            <h3>✅ Submission Successful!</h3>
-                            <p>Property has been added to both Firebase and Google Sheets.</p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    # Show appropriate error message
+                    error_message = []
+                    if not firebase_success:
+                        error_message.append("Firebase database")
+                    if not sheet_success:
+                        error_message.append("Google Sheets")
                         
-                        # Show property summary
-                        with st.expander("View Property Summary", expanded=True):
-                            summary_col1, summary_col2 = st.columns(2)
-                            with summary_col1:
-                                st.write("**Property ID:**", property_id)
-                                st.write("**Property Name:**", property_name)
-                                st.write("**Property Type:**", property_type)
-                                st.write("**Location:**", micromarket)
-                                st.write("**Configuration:**", configuration)
-                            with summary_col2:
-                                st.write("**Rent:**", f"₹{rent_per_month} Lakhs/month")
-                                st.write("**Agent:**", agent_name_final)
-                                st.write("**Floor:**", floor_range)
-                                st.write("**Availability:**", available_from_val)
-                                if drive_main_link:
-                                    st.write("**Drive Link:**", f"[Open Folder]({drive_main_link})")
-                        
-                        # Add a button to add another property
-                        if st.button("Add Another Property"):
-                            clear_form_callback()
-                    else:
-                        # Show appropriate error message
-                        error_message = []
-                        if not firebase_success:
-                            error_message.append("Firebase database")
-                        if not sheet_success:
-                            error_message.append("Google Sheets")
-                            
-                        st.markdown(f"""
-                        <div class='error-message'>
-                            <h3>⚠️ Partial Submission</h3>
-                            <p>There was an issue saving to {' and '.join(error_message)}.</p>
-                            <p>Please check the logs or contact support for assistance.</p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div class='error-message'>
+                        <h3>⚠️ Partial Submission</h3>
+                        <p>There was an issue saving to {' and '.join(error_message)}.</p>
+                        <p>Please check the logs or contact support for assistance.</p>
+                    </div>
+                    """, unsafe_allow_html=True)
     
 
 
