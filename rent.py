@@ -874,30 +874,6 @@ def main():
                         """, unsafe_allow_html=True)
     
 
-        st.markdown("""
-        ## Help & Instructions
-        
-        This form allows you to submit rental property inventories to the database. Here's how to use it:
-        
-        ### Required Fields
-        - **Agent Number**: The phone number of the agent (with or without +91)
-        - **Property Name**: Name of the property or building
-        - **Property Type**: Type of property (apartment, villa, etc.)
-        - **Micromarket**: The specific locality/area
-        
-        ### Tips for Efficient Use
-        1. **Photos & Documents**: Prepare your media files before filling the form
-        2. **Agent Details**: Make sure the agent is registered in the system
-        3. **Coordinates**: Use Google Maps to get accurate coordinates
-        4. **Drive Link**: A Google Drive folder will be automatically created
-        
-        ### Common Issues
-        - If upload is slow, try reducing the number or size of images
-        - Make sure all required fields are filled before submission
-        - If the form fails, check your internet connection and try again
-        
-        For technical support, contact the IT team.
-        """)
-    
+
 if __name__ == "__main__":
     main()
