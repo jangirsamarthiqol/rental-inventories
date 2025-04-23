@@ -652,7 +652,11 @@ def main():
     
     # Add a submit button with a clear visual style
     # st.markdown("<div class='form-section'>", unsafe_allow_html=True)
-    submit_col1, submit_col2 = st.columns([3, 1])
+    submit_col1, submit_col2 = st.columns([1, 1])
+    # if st.button():
+    #     if not property_name:
+    #         st.error("Property Name is required!")
+    #         return
     with submit_col1:
         submit_button = st.button("📝 SUBMIT INVENTORY", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -660,6 +664,12 @@ def main():
     # Process form submission
     if submit_button:
         # Create a container for submission progress
+        if not property_type:
+            st.error("Property Type is required!")
+            return
+        if not rent_per_month:
+            st.error("Rent Per Month is required!")
+            return
         submission_container = st.empty()
         with submission_container.container():
             # Validate required fields
@@ -688,10 +698,14 @@ def main():
                 # progress_bar.progress(0.2, text="Creating Drive folder...")
                 if drive_service is None:
                     drive_service = init_drive_service()
-                prop_drive_folder_id = create_drive_folder(property_id, PARENT_FOLDER_ID)
-                drive_main_link = f"https://drive.google.com/drive/folders/{prop_drive_folder_id}" if prop_drive_folder_id else ""
-                if drive_main_link:
-                    st.info(f"Drive Folder: [Open Folder]({drive_main_link})")
+                if  photos_files or videos_files or documents_files:
+                    prop_drive_folder_id = create_drive_folder(property_id, PARENT_FOLDER_ID)
+                    drive_main_link = f"https://drive.google.com/drive/folders/{prop_drive_folder_id}" if prop_drive_folder_id else ""
+                    if drive_main_link:
+                        st.info(f"Drive Folder: [Open Folder]({drive_main_link})")
+                else:
+                    prop_drive_folder_id = ""
+                    drive_main_link = ""
                 # progress_bar.progress(0.3, text="Drive folder created")
                 
                 # Step 3: Fetch agent details if not already fetched (40%)
@@ -715,17 +729,14 @@ def main():
                 
                 # Process media uploads concurrently with separate progress tracking
                 photos_urls, photos_drive_links = process_files_concurrent(
-                    photos_files, property_id, "photos", prop_drive_folder_id, upload_progress
-                )
-                
+                        photos_files, property_id, "photos", prop_drive_folder_id, upload_progress
+                    )
                 videos_urls, videos_drive_links = process_files_concurrent(
-                    videos_files, property_id, "videos", prop_drive_folder_id, upload_progress
-                )
-                
+                        videos_files, property_id, "videos", prop_drive_folder_id, upload_progress
+                    )
                 documents_urls, documents_drive_links = process_files_concurrent(
-                    documents_files, property_id, "documents", prop_drive_folder_id, upload_progress
-                )
-                
+                        documents_files, property_id, "documents", prop_drive_folder_id, upload_progress
+                    )
                 drive_file_links = photos_drive_links + videos_drive_links + documents_drive_links
                 
                 # Step 6: Prepare property data dictionary (90%)
